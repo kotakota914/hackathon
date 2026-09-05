@@ -42,6 +42,14 @@ SDKが設定する `anti-csrf` ヘッダーも必要である。`userId`、`requ
 
 ## 実装状況
 
+### バッジ集計
+
+`GET /me/badges` は、認証済み本人について `pendingApplicants`（募集中の自分の依頼に来て
+未選択の応募）、`activeMatches`（matched / in_progress / completion_pending のマッチ）、
+`unreadMessages`（相手からの未読メッセージ）を返す。ブロック関係の相手は除外する。
+状態は持たず、その時点の事実だけを数える。画面は `tetote/src/features/badges/useBadges.ts`
+で 30 秒ごとに取り直し、タブバーの「トーク」と依頼者ホームの「自分の依頼」に件数を出す。
+
 ### 自分の依頼一覧
 
 `GET /requests/mine` は、認証済み本人が依頼者の依頼を **状態に関係なく** 新しい順で返す

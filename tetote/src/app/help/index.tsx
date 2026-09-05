@@ -7,9 +7,14 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { badgeLabel } from "../../features/badges/client";
+import { useBadges } from "../../features/badges/useBadges";
 
 export default function HelpHomeScreen() {
   const router = useRouter();
+  // 自分の依頼に来た「まだ選んでいない応募」の数をボタンに出す。
+  const badges = useBadges();
+  const applicantBadge = badgeLabel(badges.pendingApplicants);
 
   return (
     <View style={styles.screen}>
@@ -85,6 +90,11 @@ export default function HelpHomeScreen() {
             <Text style={styles.characterButtonText}>
               自分の依頼・応募者を確認する
             </Text>
+            {applicantBadge && (
+              <View style={styles.applicantBadge} accessibilityLabel={`新しい応募 ${applicantBadge} 件`}>
+                <Text style={styles.applicantBadgeText}>{applicantBadge}</Text>
+              </View>
+            )}
           </Pressable>
 
           <View style={styles.mascotArea}>
@@ -209,6 +219,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
+  },
+
+  applicantBadge: {
+    position: "absolute",
+    top: -8,
+    right: -6,
+    minWidth: 26,
+    height: 26,
+    paddingHorizontal: 7,
+    borderRadius: 13,
+    backgroundColor: "#B3261E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  applicantBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "900",
   },
 
   mainButtonText: {
