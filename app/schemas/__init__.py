@@ -10,6 +10,7 @@ from .main import (
     BlockResponse,
     CharacterProgressResponse,
     ChatListResponse,
+    BadgeSummaryResponse,
     ChatSummary,
     CompletionInput,
     DisputeInput,

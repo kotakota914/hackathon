@@ -1,12 +1,16 @@
 import { Tabs } from "expo-router";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { badgeLabel } from "../../features/badges/client";
+import { useBadges } from "../../features/badges/useBadges";
 
 type TabIconProps = {
   focused: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   label: string;
   profile?: boolean;
+  /** 右上に出す件数。0 や未指定なら出さない。 */
+  badge?: number;
 };
 
 function TabIcon({
@@ -14,7 +18,9 @@ function TabIcon({
   icon,
   label,
   profile = false,
+  badge,
 }: TabIconProps) {
+  const badgeText = badgeLabel(badge ?? 0);
   return (
     <View style={styles.tabItem}>
       {profile ? (
@@ -39,6 +45,11 @@ function TabIcon({
               color={focused ? "#F2A329" : "#FFF5E9"}
             />
           )}
+          {badgeText && (
+            <View style={styles.badge} accessibilityLabel={`未読 ${badgeText} 件`}>
+              <Text style={styles.badgeText}>{badgeText}</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -55,6 +66,8 @@ function TabIcon({
 }
 
 export default function HelperLayout() {
+  // 未読メッセージなどの件数を30秒ごとに取り直し、タブに出す。
+  const badges = useBadges();
   return (
     <Tabs
       screenOptions={{
@@ -99,6 +112,7 @@ export default function HelperLayout() {
                   : "chatbubble-ellipses-outline"
               }
               label="トーク"
+              badge={badges.unreadMessages}
             />
           ),
         }}
@@ -189,6 +203,25 @@ const styles = StyleSheet.create({
     height: 43,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  badge: {
+    position: "absolute",
+    top: -6,
+    right: -14,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: "#B3261E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "900",
   },
 
   tabLabel: {

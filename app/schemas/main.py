@@ -415,6 +415,14 @@ class ChatListResponse(ContractModel):
     nextCursor: str | None = Field(description="次ページなしの場合null")
 
 
+class BadgeSummaryResponse(ContractModel):
+    """画面のバッジに使う、その時点の事実の集計。端末側に状態を持たせない。"""
+
+    pendingApplicants: int = Field(ge=0, description="自分の依頼に来て、まだ選んでいない応募の数")
+    activeMatches: int = Field(ge=0, description="進行中のマッチの数（matched / in_progress / completion_pending）")
+    unreadMessages: int = Field(ge=0, description="相手から届いて未読のメッセージの数")
+
+
 class CompletionInput(ContractModel):
     completed: Literal[True]
     actorRole: Literal["requester", "helper"]

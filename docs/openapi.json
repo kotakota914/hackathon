@@ -356,6 +356,36 @@
         "title": "AppliedMasking",
         "type": "object"
       },
+      "BadgeSummaryResponse": {
+        "description": "画面のバッジに使う、その時点の事実の集計。端末側に状態を持たせない。",
+        "properties": {
+          "activeMatches": {
+            "description": "進行中のマッチの数（matched / in_progress / completion_pending）",
+            "minimum": 0.0,
+            "title": "Activematches",
+            "type": "integer"
+          },
+          "pendingApplicants": {
+            "description": "自分の依頼に来て、まだ選んでいない応募の数",
+            "minimum": 0.0,
+            "title": "Pendingapplicants",
+            "type": "integer"
+          },
+          "unreadMessages": {
+            "description": "相手から届いて未読のメッセージの数",
+            "minimum": 0.0,
+            "title": "Unreadmessages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pendingApplicants",
+          "activeMatches",
+          "unreadMessages"
+        ],
+        "title": "BadgeSummaryResponse",
+        "type": "object"
+      },
       "BlockInput": {
         "properties": {
           "blocked": {
@@ -5081,6 +5111,69 @@
         "summary": "完了した相手をレビュー",
         "tags": [
           "Reviews"
+        ]
+      }
+    },
+    "/me/badges": {
+      "get": {
+        "description": "認証済み本人について、自分の依頼に来て未選択の応募数、進行中のマッチ数、相手からの未読メッセージ数を返す。ブロック関係の相手は除外する。状態は持たず、その時点の事実だけを数える。",
+        "operationId": "get_my_badges_me_badges_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadgeSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "バッジ用の集計を取得",
+        "tags": [
+          "Me"
         ]
       }
     },

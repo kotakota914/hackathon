@@ -89,7 +89,7 @@ from app.schemas import (
     AchievementInput, AchievementResponse, AchievementVisibilityInput,
     ApplicationInput, ApplicationListResponse, ApplicationResponse,
     CharacterProgressResponse,
-    BlockInput, BlockResponse, ChatListResponse, CompletionInput, DisputeInput, ErrorResponse,
+    BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, CompletionInput, DisputeInput, ErrorResponse,
     LocationResolveInput, LocationResolveResponse, MatchResponse, MessageInput,
     MaskingConfirmationResponse, MessageListResponse, MessageResponse,
     ProfileResponse, ProfileUpdateInput,
@@ -1586,6 +1586,56 @@ async def select_application(
         messages[match["id"]] = []
         await match_repository.create(current_user, match)
     return match
+
+
+ACTIVE_MATCH_STATUSES = {"matched", "in_progress", "completion_pending"}
+OPEN_REQUEST_STATUSES = ["published", "matching"]
+
+
+@app.get("/me/badges", response_model=BadgeSummaryResponse, tags=["Me"], summary="バッジ用の集計を取得", description="認証済み本人について、自分の依頼に来て未選択の応募数、進行中のマッチ数、相手からの未読メッセージ数を返す。ブロック関係の相手は除外する。状態は持たず、その時点の事実だけを数える。", responses=api_errors(401, 500))
+async def get_my_badges(
+    current_user: CurrentUser = Depends(get_current_user),
+    request_repository: RequestRepository = Depends(request_repository_dependency),
+    application_repository: ApplicationRepository = Depends(
+        application_repository_dependency
+    ),
+    match_repository: MatchRepository = Depends(match_repository_dependency),
+    message_repository: MessageRepository = Depends(message_repository_dependency),
+):
+    # 依頼者として: 募集中の自分の依頼に来ている、まだ選んでいない応募
+    pending_applicants = 0
+    for request_item in await request_repository.list_owned(
+        current_user, statuses=OPEN_REQUEST_STATUSES, limit=100,
+    ):
+        applications_for_request = await application_repository.list_for_request(
+            current_user, request_item["id"],
+        )
+        pending_applicants += sum(
+            item["status"] == "applied"
+            and not is_blocked_pair(current_user.user_id, item["helperId"])
+            for item in applications_for_request
+        )
+
+    # 当事者として: 進行中のマッチと、相手からの未読メッセージ
+    active_matches = 0
+    unread_messages = 0
+    for match in await match_repository.list_for_user(current_user):
+        other_id = match["helperId"] if match["requesterId"] == current_user.user_id else match["requesterId"]
+        if is_blocked_pair(current_user.user_id, other_id):
+            continue
+        if match["status"] in ACTIVE_MATCH_STATUSES:
+            active_matches += 1
+        chat_messages = await message_repository.peek_for_match(current_user, match["id"])
+        unread_messages += sum(
+            item["senderId"] != current_user.user_id and item["readAt"] is None
+            for item in chat_messages
+        )
+
+    return {
+        "pendingApplicants": pending_applicants,
+        "activeMatches": active_matches,
+        "unreadMessages": unread_messages,
+    }
 
 
 @app.get("/matches", response_model=ChatListResponse, tags=["Matches"], summary="自分のチャット一覧を取得", description="認証ユーザーが当事者であるマッチだけを最終更新の新しい順で返す。一覧取得ではメッセージを既読にしない。ブロック関係にある相手とのマッチは除外する。", responses=api_errors(401, 422, 500))
