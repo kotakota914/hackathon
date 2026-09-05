@@ -9,7 +9,7 @@ import os
 import re
 import secrets
 import uuid
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, get_args
 from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request
@@ -84,6 +84,7 @@ if SUPERTOKENS_ENABLED:
     from supertokens_python.framework.fastapi import get_middleware
 from app.routers import system_router
 from app.settings import reject_unsafe_in_production, settings
+from app.schemas.main import RequestStatus
 from app.schemas import (
     AchievementInput, AchievementResponse, AchievementVisibilityInput,
     ApplicationInput, ApplicationListResponse, ApplicationResponse,
@@ -94,7 +95,7 @@ from app.schemas import (
     ProfileResponse, ProfileUpdateInput,
     ReportInput, ReportResponse, RequestInput, RequestListResponse, RequestResponse,
     RequestUpdateInput, ResetResponse, ReviewInput, ReviewResponse, SelectionInput,
-    SavedRequestListResponse,
+    SavedRequestListResponse, OwnedRequestListResponse,
     StructureInput, StructuredRequestResponse, VerificationInput, VerificationResponse,
     VerificationDecisionInput, VerificationDocumentAccessResponse,
     VerificationReviewItem, VerificationReviewListResponse,
@@ -1162,6 +1163,23 @@ async def get_recommended_requests(
         "items": page,
         "nextCursor": next_cursor
     }
+
+@app.get("/requests/mine", response_model=OwnedRequestListResponse, tags=["Requests"], summary="自分の依頼を一覧", description="認証済み本人が依頼者の依頼を、状態に関係なく新しい順で返す。公開一覧（GET /requests）は published しか返さないため、審査待ち・マッチ済み・完了・取消済みの依頼を本人が追うにはこちらを使う。statusを複数指定して絞り込める。", responses=api_errors(401, 422, 500))
+async def list_my_requests(
+    status: list[str] | None = Query(
+        default=None,
+        description="絞り込む状態。複数指定可（例: status=published&status=matched）",
+    ),
+    limit: int = Query(default=50, ge=1, le=100),
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: RequestRepository = Depends(request_repository_dependency),
+):
+    allowed = set(get_args(RequestStatus))
+    if status and any(value not in allowed for value in status):
+        raise HTTPException(422, detail={"code": "INVALID_STATUS"})
+    items = await repository.list_owned(current_user, statuses=status, limit=limit)
+    return {"items": items}
+
 
 @app.get("/requests", response_model=RequestListResponse, tags=["Requests"], summary="公開依頼を検索", description="カテゴリ・日時・必要人数・概算距離・本人確認状態で絞り込み、カーソルページングで返す。現在地または登録地域による並び替え元もoriginで返す。", responses=api_errors(401, 422, 500))
 async def list_requests(

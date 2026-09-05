@@ -198,6 +198,12 @@ class SavedRequestListResponse(ContractModel):
     items: list[RequestResponse]
 
 
+class OwnedRequestListResponse(ContractModel):
+    """依頼者本人の依頼一覧。状態に関係なく含み、新しい順。"""
+
+    items: list[RequestResponse]
+
+
 class RequestUpdateInput(ContractModel):
     title: str | None = Field(None, min_length=1, max_length=100)
     description: str | None = Field(None, min_length=1, max_length=2000)

@@ -114,6 +114,39 @@ export async function listPublicRequests(
   return { items: page.items, nextCursor: page.nextCursor };
 }
 
+/** 依頼者本人の依頼を、状態に関係なく新しい順で返す。 */
+export async function listMyRequests(
+  params: { status?: string[]; limit?: number } = {},
+  client: ApiClient = apiClient,
+): Promise<{ items: PublicRequest[] }> {
+  const query = new URLSearchParams();
+  for (const status of params.status ?? []) query.append("status", status);
+  if (params.limit) query.set("limit", String(params.limit));
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return client.get<{ items: PublicRequest[] }>(`/requests/mine${suffix}`);
+}
+
+// 依頼の状態を、依頼者が読んで分かる言葉にする。
+const statusLabels: Record<string, string> = {
+  draft: "下書き",
+  pending_review: "確認中",
+  published: "募集中",
+  matching: "募集中",
+  matched: "支援者が決まりました",
+  in_progress: "支援中",
+  completion_pending: "完了の確認待ち",
+  completed: "完了",
+  rejected: "受付できませんでした",
+  cancelled: "取消済み",
+  expired: "期限切れ",
+  suspended: "停止中",
+  disputed: "トラブル対応中",
+};
+
+export function requestStatusLabel(status: string): string {
+  return statusLabels[status] ?? status;
+}
+
 export async function getRequest(
   requestId: string,
   client: ApiClient = apiClient,

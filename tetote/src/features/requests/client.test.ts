@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiClient } from "../../api/client";
 import {
   getRequest,
+  listMyRequests,
   listPublicRequests,
+  requestStatusLabel,
   requestListErrorMessage,
   tagsForCategory,
   toRequestCard,
@@ -132,5 +134,33 @@ describe("失敗の表示", () => {
     expect(requestListErrorMessage(new TypeError("Failed to fetch"))).toContain(
       "依頼を読み込めませんでした",
     );
+  });
+});
+
+describe("自分の依頼一覧", () => {
+  it("/requests/mine を呼び、状態の絞り込みを複数渡せる", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [REQUEST] }));
+    const client = clientWith(fetchMock);
+
+    const page = await listMyRequests({ status: ["published", "cancelled"], limit: 10 }, client);
+
+    expect(page.items).toEqual([REQUEST]);
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://api.test/requests/mine?status=published&status=cancelled&limit=10");
+  });
+
+  it("絞り込みが無ければクエリを付けない", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [] }));
+
+    await listMyRequests({}, clientWith(fetchMock));
+
+    expect((fetchMock.mock.calls[0] as [string])[0]).toBe("http://api.test/requests/mine");
+  });
+
+  it("状態を依頼者向けの言葉にする", () => {
+    expect(requestStatusLabel("published")).toBe("募集中");
+    expect(requestStatusLabel("pending_review")).toBe("確認中");
+    expect(requestStatusLabel("cancelled")).toBe("取消済み");
+    expect(requestStatusLabel("something_new")).toBe("something_new");
   });
 });

@@ -1146,6 +1146,23 @@
         "title": "MessageResponse",
         "type": "object"
       },
+      "OwnedRequestListResponse": {
+        "description": "依頼者本人の依頼一覧。状態に関係なく含み、新しい順。",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RequestResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "OwnedRequestListResponse",
+        "type": "object"
+      },
       "ProfileImageInput": {
         "properties": {
           "uploadId": {
@@ -6094,6 +6111,122 @@
           }
         ],
         "summary": "LLM送信前のマスキング結果を確認",
+        "tags": [
+          "Requests"
+        ]
+      }
+    },
+    "/requests/mine": {
+      "get": {
+        "description": "認証済み本人が依頼者の依頼を、状態に関係なく新しい順で返す。公開一覧（GET /requests）は published しか返さないため、審査待ち・マッチ済み・完了・取消済みの依頼を本人が追うにはこちらを使う。statusを複数指定して絞り込める。",
+        "operationId": "list_my_requests_requests_mine_get",
+        "parameters": [
+          {
+            "description": "絞り込む状態。複数指定可（例: status=published&status=matched）",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "絞り込む状態。複数指定可（例: status=published&status=matched）",
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnedRequestListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "details": {},
+                    "message": "入力内容を確認してください",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "入力内容を確認してください"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "自分の依頼を一覧",
         "tags": [
           "Requests"
         ]
