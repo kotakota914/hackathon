@@ -164,6 +164,12 @@ class RequestRepository(Protocol):
 
     async def get(self, actor: CurrentUser, request_id: str) -> RequestRecord | None: ...
 
+    async def list_owned(
+        self, actor: CurrentUser, *, statuses: Sequence[str] | None = None, limit: int = 100,
+    ) -> list[RequestRecord]:
+        """本人が依頼者の依頼を、状態に関係なく新しい順で返す。"""
+        ...
+
     async def create(
         self, actor: CurrentUser, values: dict[str, Any]
     ) -> RequestRecord: ...
@@ -275,6 +281,18 @@ class MemoryRequestRepository:
         del actor
         item = self._items.get(request_id)
         return _public_record(item) if item else None
+
+    async def list_owned(
+        self, actor: CurrentUser, *, statuses: Sequence[str] | None = None, limit: int = 100,
+    ) -> list[RequestRecord]:
+        wanted = set(statuses) if statuses else None
+        items = [
+            item for item in self._items.values()
+            if item["requesterId"] == actor.user_id
+            and (wanted is None or item["status"] in wanted)
+        ]
+        items.sort(key=lambda item: (_parse_timestamp(item["createdAt"]), item["id"]), reverse=True)
+        return [_public_record(item) for item in items[:limit]]
 
     async def create(self, actor: CurrentUser, values: dict[str, Any]) -> RequestRecord:
         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -413,6 +431,28 @@ class PostgresRequestRepository:
         async with actor_connection(actor) as conn:
             row = await conn.fetchrow(self._SELECT + " where r.id = $1", parsed_id)
         return _public_record(_row_to_record(row)) if row else None
+
+    async def list_owned(
+        self, actor: CurrentUser, *, statuses: Sequence[str] | None = None, limit: int = 100,
+    ) -> list[RequestRecord]:
+        # 本人の依頼は RLS（requests_select）が requester_id = app.current_actor() で許可する。
+        async with actor_connection(actor) as conn:
+            if statuses:
+                rows = await conn.fetch(
+                    self._SELECT + """
+                     where r.requester_id = app.current_actor()
+                       and r.status = any($1::request_status[])
+                     order by r.created_at desc, r.id desc limit $2""",
+                    list(statuses), limit,
+                )
+            else:
+                rows = await conn.fetch(
+                    self._SELECT + """
+                     where r.requester_id = app.current_actor()
+                     order by r.created_at desc, r.id desc limit $1""",
+                    limit,
+                )
+        return [_public_record(_row_to_record(row)) for row in rows]
 
     async def create(self, actor: CurrentUser, values: dict[str, Any]) -> RequestRecord:
         async with actor_connection(actor) as conn:

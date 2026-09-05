@@ -37,6 +37,7 @@ from .main import (
     SafetyAssessment,
     SelectionInput,
     SavedRequestListResponse,
+    OwnedRequestListResponse,
     StructureInput,
     StructuredRequestDraft,
     StructuredRequestResponse,

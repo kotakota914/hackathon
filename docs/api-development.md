@@ -42,6 +42,15 @@ SDKが設定する `anti-csrf` ヘッダーも必要である。`userId`、`requ
 
 ## 実装状況
 
+### 自分の依頼一覧
+
+`GET /requests/mine` は、認証済み本人が依頼者の依頼を **状態に関係なく** 新しい順で返す
+（`limit` 既定50、最大100）。`status` を複数指定して絞り込める
+（例: `?status=published&status=matched`）。不明な状態は 422 `INVALID_STATUS`。
+公開一覧 `GET /requests` は published しか返さないため、依頼者が審査待ち・マッチ済み・
+完了・取消済みを追う画面（`tetote/src/app/help/requests.tsx`）はこちらを使う。
+Postgres 実装は RLS の `requester_id = app.current_actor()` に乗る。
+
 ### 利用者設定
 
 `GET /settings` と `PATCH /settings` は、認証済み本人の `notificationsEnabled`、

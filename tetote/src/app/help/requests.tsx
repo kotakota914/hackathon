@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "../../auth/AuthContext";
 import { deleteRequest } from "../../api/request-deletion";
 import { updateRequest } from "../../api/request-update";
-import { listPublicRequests, requestListErrorMessage, type PublicRequest } from "../../features/requests/client";
+import { listMyRequests, requestListErrorMessage, requestStatusLabel, type PublicRequest } from "../../features/requests/client";
 import { listApplicants, selectApplicant, selectionErrorMessage, type Applicant } from "../../features/applications/client";
 
 export default function MyRequestsScreen() {
   const router = useRouter();
-  const { profile } = useAuth();
   const [items, setItems] = useState<PublicRequest[]>([]);
   const [selected, setSelected] = useState<PublicRequest | null>(null);
   const [applicants, setApplicants] = useState<Applicant[]>([]);
@@ -17,21 +15,21 @@ export default function MyRequestsScreen() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState("");
 
+  // 公開一覧ではなく本人の依頼一覧を使う。審査待ち・マッチ済み・完了・取消済みも並ぶ。
   const load = useCallback(async () => {
     setStatus("loading"); setMessage("");
     try {
-      const page = await listPublicRequests();
-      setItems(page.items.filter((item) => item.requesterId === profile?.id));
+      const page = await listMyRequests();
+      setItems(page.items);
       setStatus("ready");
     } catch (error) { setMessage(requestListErrorMessage(error)); setStatus("error"); }
-  }, [profile?.id]);
+  }, []);
 
   useEffect(() => {
-    if (!profile?.id) return;
     let active = true;
-    void listPublicRequests().then((page) => {
+    void listMyRequests().then((page) => {
       if (!active) return;
-      setItems(page.items.filter((item) => item.requesterId === profile.id));
+      setItems(page.items);
       setStatus("ready");
     }).catch((error: unknown) => {
       if (!active) return;
@@ -39,7 +37,7 @@ export default function MyRequestsScreen() {
       setStatus("error");
     });
     return () => { active = false; };
-  }, [profile?.id]);
+  }, []);
 
   const open = async (request: PublicRequest) => {
     setSelected(request); setTitle(request.title); setMessage("");
@@ -60,7 +58,7 @@ export default function MyRequestsScreen() {
   const cancel = async () => {
     if (!selected) return;
     const result = await deleteRequest(selected.id, items as never[]);
-    if (result.status === "deleted") { setItems((all) => all.filter((x) => x.id !== selected.id)); setSelected(null); setMessage("依頼を取り消しました。"); }
+    if (result.status === "deleted") { setItems((all) => all.map((x) => x.id === selected.id ? { ...x, status: "cancelled" } : x)); setSelected(null); setMessage("依頼を取り消しました。"); }
     else setMessage("この依頼は現在取り消せません。");
   };
 
@@ -77,9 +75,15 @@ export default function MyRequestsScreen() {
     <Text style={styles.heading}>自分の依頼</Text>
     {status === "loading" ? <ActivityIndicator color="#245C2D" /> : null}
     {status === "error" ? <Pressable onPress={() => void load()}><Text style={styles.link}>{message} 再試行</Text></Pressable> : null}
-    {!selected && status === "ready" && items.length === 0 ? <Text>公開中の依頼はありません。</Text> : null}
+    {!selected && status === "ready" && items.length === 0 ? <Text>依頼はまだありません。</Text> : null}
     {!selected ? items.map((item) => <Pressable key={item.id} onPress={() => void open(item)} style={styles.card}>
-      <Text style={styles.title}>{item.title}</Text><Text>{item.areaLabel}・{item.status}</Text>
+      <View style={styles.cardHeader}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={[styles.badge, item.status === "published" ? styles.badgeOpen : item.status === "cancelled" ? styles.badgeMuted : styles.badgeActive]}>
+          {requestStatusLabel(item.status)}
+        </Text>
+      </View>
+      <Text>{item.areaLabel}</Text>
     </Pressable>) : <View style={styles.card}>
       <Pressable onPress={() => setSelected(null)}><Text style={styles.link}>一覧へ</Text></Pressable>
       <TextInput accessibilityLabel="依頼タイトル" value={title} onChangeText={setTitle} style={styles.input} />
@@ -104,7 +108,12 @@ const styles = StyleSheet.create({
   subheading: { fontSize: 20, fontWeight: "800", marginTop: 18 },
   card: { padding: 18, borderRadius: 14, backgroundColor: "#FFFFFF", gap: 10 },
   applicant: { paddingTop: 14, borderTopWidth: 1, borderTopColor: "#DDDDDD", gap: 6 },
-  title: { fontSize: 17, fontWeight: "700" },
+  title: { fontSize: 17, fontWeight: "700", flexShrink: 1 },
+  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  badge: { fontSize: 12, fontWeight: "800", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, color: "#FFFFFF" },
+  badgeOpen: { backgroundColor: "#159326" },
+  badgeActive: { backgroundColor: "#D89B31" },
+  badgeMuted: { backgroundColor: "#9E9E9E" },
   input: { borderWidth: 1, borderColor: "#C8CEBD", borderRadius: 10, padding: 12, fontSize: 16 },
   primary: { alignItems: "center", padding: 12, borderRadius: 10, backgroundColor: "#245C2D" },
   danger: { alignItems: "center", padding: 12, borderRadius: 10, backgroundColor: "#A23B32" },
