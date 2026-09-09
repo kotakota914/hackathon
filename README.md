@@ -147,6 +147,7 @@ DB への migration 適用は `scripts/apply_migrations.py` を使う。
 - [docs/voice-input.md](docs/voice-input.md) — 音声入力の状態遷移
 - [docs/request-publish-flow.md](docs/request-publish-flow.md) — 依頼の公開・取消の状態遷移
 - [docs/safety-reporting.md](docs/safety-reporting.md) — 通報・ブロック
+- [docs/account-deletion.md](docs/account-deletion.md) — アカウント削除（退会）の方針と処理順
 - [docs/cross-team-coordination.md](docs/cross-team-coordination.md) — フロント・DB 担当との調整事項
 - [docs/infra-setup.md](docs/infra-setup.md) — 自前インフラ（Supabase / SuperTokens / Vercel）の構築手順
 - [dbtodo.md](dbtodo.md) — Supabase 永続化の進捗

@@ -3402,6 +3402,98 @@
         ]
       }
     },
+    "/account": {
+      "delete": {
+        "description": "認証済み本人だけが実行できる。進行中のマッチ（matched / in_progress / completion_pending）があれば 409 ACCOUNT_HAS_ACTIVE_MATCH で拒否する。募集中の自分の依頼は取消、未処理の応募は取下げにしたうえで、プロフィールを匿名化（表示名を「退会したユーザー」に、個人が特定できる項目を削除）し、認証側の利用者と全セッションを失効させる。依頼・会話・レビューは相手のために匿名化して残す。二重実行しても安全。詳細は docs/account-deletion.md。",
+        "operationId": "delete_account_account_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "ROLE_FORBIDDEN",
+                    "details": {},
+                    "message": "この操作を行う権限がありません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "この操作を行う権限がありません"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "REQUEST_STATE_CONFLICT",
+                    "details": {},
+                    "message": "依頼の状態が更新されているため処理できません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "依頼の状態が更新されているため処理できません"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "自分のアカウントを削除（退会）",
+        "tags": [
+          "Me"
+        ]
+      }
+    },
     "/achievements/generate": {
       "post": {
         "description": "completedのマッチ当事者だけが生成できる開発用AIモック。個人情報を含めず、公開には本人承認が必要。",

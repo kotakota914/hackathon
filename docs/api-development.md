@@ -100,3 +100,10 @@ Repositoryに対応する。位置解決、レビュー、AI実績、本人確�
 インメモリ／モックである。SuperTokensの `/auth/*` はSDK提供であり、FastAPI生成の
 OpenAPIには個別操作として現れない。管理画面、Realtime、実AI、本人確認審査、
 証明画像アップロード、カーソルによる次ページ取得は未実装である。
+
+### アカウント削除（退会）
+
+- `DELETE /account`（認証必須、204）。本人だけが実行できる。
+- 進行中のマッチがあれば 409 `ACCOUNT_HAS_ACTIVE_MATCH`。募集中の依頼は取消、未処理の応募は取下げにしたうえで、プロフィールを匿名化し、SuperTokens の利用者と全セッションを失効させる。
+- `users` 行は物理削除せず匿名化して残す（依頼・会話・レビューを相手のために保つ）。詳細と「何を消し何を残すか」の表は [account-deletion.md](account-deletion.md)。
+- 実装: `app/repositories/accounts.py`（Memory / Postgres）、DB 関数 `app.delete_own_account()`。
