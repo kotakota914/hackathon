@@ -40,6 +40,7 @@ if SUPERTOKENS_ENABLED:
         PasswordResetPostOkResult,
         SignUpPostOkResult,
     )
+    from supertokens_python.asyncio import delete_user as _supertokens_delete_user
     from supertokens_python.recipe.session.asyncio import revoke_all_sessions_for_user
     from supertokens_python.recipe.session.framework.fastapi import verify_session
 
@@ -173,6 +174,19 @@ def initialise_supertokens() -> None:
 
 
 initialise_supertokens()
+
+
+async def delete_auth_user(user_id: str) -> None:
+    """認証側の利用者を消し、全セッションを失効させる（退会の最終段階）。
+
+    アプリ側のデータを匿名化した後に呼ぶ。ここが失敗しても利用者は再ログインして
+    もう一度退会を実行でき、その再実行で認証側の削除がやり直される。
+    """
+
+    if not SUPERTOKENS_ENABLED:
+        return
+    await revoke_all_sessions_for_user(user_id)
+    await _supertokens_delete_user(user_id)
 
 
 def cors_headers() -> list[str]:

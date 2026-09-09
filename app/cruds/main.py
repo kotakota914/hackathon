@@ -23,7 +23,7 @@ from starlette.datastructures import MutableHeaders
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.auth import (
     SUPERTOKENS_ENABLED, CurrentUser, configure_user_creator, configure_user_lookup,
-    cors_headers, get_current_user,
+    cors_headers, get_current_user, delete_auth_user,
 )
 from app.repositories.requests import (
     InvalidCursor, RequestRepository, decode_cursor, encode_cursor, get_request_repository,
@@ -40,6 +40,10 @@ from app.repositories.messages import (
 from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
+)
+from app.repositories.accounts import (
+    ACTIVE_MATCH_STATUSES, AccountRepository, ActiveMatchError,
+    configure_memory_account_store, get_account_repository,
 )
 from app.repositories.saved_requests import (
     SavedRequestRepository, get_saved_request_repository,
@@ -156,6 +160,7 @@ ERROR_MESSAGES = {
     "INVALID_CURSOR": "カーソルが無効です",
     "VALIDATION_ERROR": "入力内容を確認してください",
     "REGION_SELECTION_REQUIRED": "地域を選択してください",
+    "ACCOUNT_HAS_ACTIVE_MATCH": "進行中の支援があるため退会できません。完了または取消をしてからもう一度お試しください",
     "INTERNAL_SERVER_ERROR": "サーバー内部でエラーが発生しました",
 }
 
@@ -593,6 +598,7 @@ def reset_store() -> None:
 
 reset_store()
 configure_memory_profile_store(lambda: users_store)
+configure_memory_account_store(lambda: users_store)
 if settings.request_repository == "postgres":
     configure_user_lookup(resolve_authenticated_user)
 else:
@@ -1588,8 +1594,23 @@ async def select_application(
     return match
 
 
-ACTIVE_MATCH_STATUSES = {"matched", "in_progress", "completion_pending"}
 OPEN_REQUEST_STATUSES = ["published", "matching"]
+
+
+@app.delete("/account", status_code=204, tags=["Me"], summary="自分のアカウントを削除（退会）", description="認証済み本人だけが実行できる。進行中のマッチ（matched / in_progress / completion_pending）があれば 409 ACCOUNT_HAS_ACTIVE_MATCH で拒否する。募集中の自分の依頼は取消、未処理の応募は取下げにしたうえで、プロフィールを匿名化（表示名を「退会したユーザー」に、個人が特定できる項目を削除）し、認証側の利用者と全セッションを失効させる。依頼・会話・レビューは相手のために匿名化して残す。二重実行しても安全。詳細は docs/account-deletion.md。", responses=api_errors(401, 403, 409, 500))
+async def delete_account(
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: AccountRepository = Depends(get_account_repository),
+):
+    try:
+        await repository.delete_own(current_user)
+    except ActiveMatchError:
+        raise HTTPException(409, detail={"code": "ACCOUNT_HAS_ACTIVE_MATCH"})
+    except KeyError:
+        raise HTTPException(403, detail={"code": "USER_PROFILE_NOT_FOUND"})
+    # アプリ側の匿名化が終わってから認証側を消す。逆順だと失敗時に本人が再試行できない。
+    await delete_auth_user(current_user.user_id)
+    return None
 
 
 @app.get("/me/badges", response_model=BadgeSummaryResponse, tags=["Me"], summary="バッジ用の集計を取得", description="認証済み本人について、自分の依頼に来て未選択の応募数、進行中のマッチ数、相手からの未読メッセージ数を返す。ブロック関係の相手は除外する。状態は持たず、その時点の事実だけを数える。", responses=api_errors(401, 500))

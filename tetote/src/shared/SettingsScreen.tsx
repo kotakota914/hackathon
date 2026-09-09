@@ -15,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useFontSize } from "../context/FontSizeContext";
 import { useAuth } from "../auth/AuthContext";
+import { accountDeletionMessage, deleteAccount } from "../features/account/client";
 
 export default function HelperSettingsScreen() {
   const router = useRouter();
@@ -45,6 +46,8 @@ export default function HelperSettingsScreen() {
     useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fs = (size: number) => size * scale;
 
@@ -63,7 +66,26 @@ export default function HelperSettingsScreen() {
     }
   };
 
-  const handleDeleteAccount = () => {
+  // サーバーで退会が完了（204）してから端末側の認証状態を捨てる。
+  // 失敗したときは画面に理由を出し、データも認証状態もそのまま残す。
+  const handleDeleteAccount = async () => {
+    if (isDeleting) return;
+    setDeleteError("");
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+    } catch (error) {
+      setDeleteError(accountDeletionMessage(error));
+      setIsDeleting(false);
+      return;
+    }
+    try {
+      // 認証側の利用者はもう消えているので、ここでの失敗は無視してよい。
+      await signOut();
+    } catch {
+      /* ignore */
+    }
+    setIsDeleting(false);
     setDeleteModalVisible(false);
     router.replace("/auth/login");
   };
@@ -503,11 +525,23 @@ export default function HelperSettingsScreen() {
               この操作は取り消すことができません。
             </Text>
 
+            {deleteError ? (
+              <Text
+                accessibilityRole="alert"
+                style={[styles.modalError, { fontSize: fs(13), lineHeight: fs(20) }]}
+              >
+                {deleteError}
+              </Text>
+            ) : null}
+
             <Pressable
               onPress={handleDeleteAccount}
+              disabled={isDeleting}
+              accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
               style={({ pressed }) => [
                 styles.deleteButton,
                 pressed && styles.pressed,
+                isDeleting && styles.buttonDisabled,
               ]}
             >
               <Text
@@ -516,7 +550,7 @@ export default function HelperSettingsScreen() {
                   { fontSize: fs(15) },
                 ]}
               >
-                アカウントを削除
+                {isDeleting ? "削除しています…" : "アカウントを削除"}
               </Text>
             </Pressable>
 
@@ -834,6 +868,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     marginTop: 10,
+  },
+
+  modalError: {
+    color: "#B3261E",
+    marginBottom: 12,
+  },
+
+  buttonDisabled: {
+    opacity: 0.6,
   },
 
   logoutConfirmButton: {
