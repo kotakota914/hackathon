@@ -41,6 +41,9 @@ from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
 )
+from app.repositories.reviews import (
+    DuplicateReviewError, ReviewRepository, get_review_repository,
+)
 from app.repositories.public_profiles import (
     PublicProfileRepository, get_public_profile_repository,
 )
@@ -1759,10 +1762,12 @@ async def get_public_profile(
     user_id: str = Path(min_length=1, max_length=120),
     current_user: CurrentUser = Depends(get_current_user),
     repository: PublicProfileRepository = Depends(get_public_profile_repository),
+    review_repository: ReviewRepository = Depends(get_review_repository),
 ):
     record = await repository.get(current_user, user_id)
     if record is None:
         raise HTTPException(404, detail={"code": "USER_NOT_FOUND"})
+    review_summary = await review_repository.summary_for(current_user, user_id)
     # キャラクターの段階は本人の画面と同じ規則（services/character.py）で計算する。
     # 合計時間しか無いので、1 回あたりの点数は「回数×基本点 + 合計分」で同じ結果になる。
     progress = character.build_progress(
@@ -1783,6 +1788,7 @@ async def get_public_profile(
         },
         "achievementText": record["achievementText"],
         "achievementApprovedAt": record["achievementApprovedAt"],
+        "reviewSummary": review_summary,
     }
 
 
@@ -2070,26 +2076,26 @@ async def create_review(
     match_id: str,
     body: ReviewInput,
     current_user: CurrentUser = Depends(get_current_user),
+    match_repository: MatchRepository = Depends(match_repository_dependency),
+    review_repository: ReviewRepository = Depends(get_review_repository),
 ):
-    match = match_or_404(match_id)
+    # マッチは Repository（本番は Postgres）が正本。メモリ上の辞書は見ない。
+    match = await match_repository.get(current_user, match_id)
+    if match is None:
+        raise HTTPException(404, detail={"code": "MATCH_NOT_FOUND"})
     actor_role = ensure_match_participant(match, current_user.user_id)
     if match["status"] != "completed":
         raise HTTPException(409, detail={"code": "MATCH_NOT_COMPLETED"})
-    if any(
-        review["matchId"] == match_id and review["reviewerId"] == current_user.user_id
-        for review in reviews.values()
-    ):
+    reviewee_id = match["helperId"] if actor_role == "requester" else match["requesterId"]
+    payload = body.model_dump()
+    try:
+        return await review_repository.create(
+            current_user, match_id=match_id, reviewee_id=reviewee_id,
+            evaluation={k: payload[k] for k in ("onTime", "polite", "safetyAware", "communicative")},
+            comment=payload["comment"],
+        )
+    except DuplicateReviewError:
         raise HTTPException(409, detail={"code": "DUPLICATE_REVIEW"})
-    item = {
-        "id": new_id("review"),
-        "matchId": match_id,
-        "reviewerId": current_user.user_id,
-        "revieweeId": match["helperId"] if actor_role == "requester" else match["requesterId"],
-        **body.model_dump(),
-        "createdAt": now_iso(),
-    }
-    reviews[item["id"]] = item
-    return item
 
 
 @app.post("/achievements/generate", response_model=AchievementResponse, status_code=201, tags=["Achievements"], summary="AI実績プロフィールを生成", description="completedのマッチ当事者だけが生成できる開発用AIモック。個人情報を含めず、公開には本人承認が必要。", responses=api_errors(401, 403, 404, 409, 422, 500))

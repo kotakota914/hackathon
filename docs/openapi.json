@@ -1929,6 +1929,10 @@
             "description": "参加した月（YYYY-MM）。不明ならnull",
             "title": "Membersince"
           },
+          "reviewSummary": {
+            "$ref": "#/components/schemas/ReviewSummaryResponse",
+            "description": "受け取った評価の要約。本文や評価者は含まない"
+          },
           "totalMinutes": {
             "description": "完了した支援の想定所要時間の合計（分）",
             "title": "Totalminutes",
@@ -1953,7 +1957,8 @@
           "totalMinutes",
           "character",
           "achievementText",
-          "achievementApprovedAt"
+          "achievementApprovedAt",
+          "reviewSummary"
         ],
         "title": "PublicProfileResponse",
         "type": "object"
@@ -2656,6 +2661,44 @@
           "createdAt"
         ],
         "title": "ReviewResponse",
+        "type": "object"
+      },
+      "ReviewSummaryResponse": {
+        "properties": {
+          "communicative": {
+            "description": "「連絡がこまめ」と評価された件数",
+            "title": "Communicative",
+            "type": "integer"
+          },
+          "count": {
+            "description": "受け取った評価の件数",
+            "title": "Count",
+            "type": "integer"
+          },
+          "onTime": {
+            "description": "「時間どおり」と評価された件数",
+            "title": "Ontime",
+            "type": "integer"
+          },
+          "polite": {
+            "description": "「丁寧」と評価された件数",
+            "title": "Polite",
+            "type": "integer"
+          },
+          "safetyAware": {
+            "description": "「安全に配慮」と評価された件数",
+            "title": "Safetyaware",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "onTime",
+          "polite",
+          "safetyAware",
+          "communicative"
+        ],
+        "title": "ReviewSummaryResponse",
         "type": "object"
       },
       "SafetyAssessment": {

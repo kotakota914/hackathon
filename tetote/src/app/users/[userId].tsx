@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ApiError } from "../../api/errors";
 import { useFontSize } from "../../context/FontSizeContext";
 import {
+  REVIEW_TRAIT_LABELS,
   VERIFICATION_LABELS,
   getPublicProfile,
   memberSinceLabel,
@@ -132,6 +133,25 @@ function ProfileBody({ profile, fs }: { profile: PublicProfile; fs: (n: number) 
       </View>
 
       <View style={styles.card}>
+        <Text style={[styles.title, { fontSize: fs(16) }]}>受け取った評価</Text>
+        {profile.reviewSummary.count === 0 ? (
+          <Text style={[styles.muted, { fontSize: fs(14), lineHeight: fs(22) }]}>まだ評価はありません。</Text>
+        ) : (
+          <>
+            <Text style={[styles.body, { fontSize: fs(14) }]}>{profile.reviewSummary.count}件の評価</Text>
+            {REVIEW_TRAIT_LABELS.map(({ key, label }) => (
+              <View key={key} style={styles.traitRow}>
+                <Text style={[styles.body, { fontSize: fs(14) }]}>{label}</Text>
+                <Text style={[styles.traitValue, { fontSize: fs(14) }]}>
+                  {profile.reviewSummary[key]} / {profile.reviewSummary.count}
+                </Text>
+              </View>
+            ))}
+          </>
+        )}
+      </View>
+
+      <View style={styles.card}>
         <Text style={[styles.title, { fontSize: fs(16) }]}>実績</Text>
         {profile.achievementText ? (
           <Text style={[styles.body, { fontSize: fs(15), lineHeight: fs(24) }]}>{profile.achievementText}</Text>
@@ -179,6 +199,8 @@ const styles = StyleSheet.create({
   card: { backgroundColor: COLORS.card, borderRadius: 16, padding: 18, gap: 10 },
   title: { color: COLORS.green, fontWeight: "800" },
   body: { color: COLORS.text },
+  traitRow: { flexDirection: "row", justifyContent: "space-between" },
+  traitValue: { color: COLORS.green, fontWeight: "800" },
   muted: { color: COLORS.muted },
   note: { color: COLORS.muted, textAlign: "center" },
   error: { color: "#B3261E", fontWeight: "700" },
