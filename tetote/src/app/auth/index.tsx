@@ -66,6 +66,16 @@ export default function AuthScreen() {
               ログイン
             </Text>
           </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({ pathname: "/tutorial", params: { next: "/auth" } })
+            }
+            style={({ pressed }) => [styles.tryButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.tryButtonText}>登録前に使い方を体験する</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -159,6 +169,17 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  tryButton: {
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  tryButtonText: {
+    color: "#245C2D",
+    fontSize: 15,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   pressed: {
     opacity: 0.75,
     transform: [{ scale: 0.98 }],
