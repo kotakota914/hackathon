@@ -59,6 +59,9 @@ from .main import (
     VerificationReviewListResponse,
     RecommendedRequestItem,
     RecommendedRequestListResponse,
+    MunicipalityBreakdownItem,
+    MunicipalityTotals,
+    MunicipalityOverviewResponse,
 )
 
 __all__ = [name for name in globals() if not name.startswith("_")]

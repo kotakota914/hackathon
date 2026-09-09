@@ -41,6 +41,10 @@ from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
 )
+from app.repositories.stats import (
+    MIN_CELL_SIZE, StatsRepository, area_label, category_label,
+    configure_memory_stats_store, get_stats_repository, suppress,
+)
 from app.repositories.accounts import (
     ACTIVE_MATCH_STATUSES, AccountRepository, ActiveMatchError,
     configure_memory_account_store, get_account_repository,
@@ -93,7 +97,7 @@ from app.schemas import (
     AchievementInput, AchievementResponse, AchievementVisibilityInput,
     ApplicationInput, ApplicationListResponse, ApplicationResponse,
     CharacterProgressResponse,
-    BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, CompletionInput, DisputeInput, ErrorResponse,
+    BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, MunicipalityOverviewResponse, CompletionInput, DisputeInput, ErrorResponse,
     LocationResolveInput, LocationResolveResponse, MatchResponse, MessageInput,
     MaskingConfirmationResponse, MessageListResponse, MessageResponse,
     ProfileResponse, ProfileUpdateInput,
@@ -558,6 +562,11 @@ def reset_store() -> None:
             **HELPERS["usr_208"], "role": "member", "status": "active",
             "emailVerified": True,
         },
+        "usr_901": {
+            "id": "usr_901", "displayName": "運営 管理者", "role": "admin",
+            "status": "active", "emailVerified": True,
+            "verificationStatus": "approved", "areaCode": "AREA-001",
+        },
         "usr_301": {
             "id": "usr_301", "displayName": "鈴木 雪", "role": "member",
             "status": "active", "emailVerified": True,
@@ -599,6 +608,10 @@ def reset_store() -> None:
 reset_store()
 configure_memory_profile_store(lambda: users_store)
 configure_memory_account_store(lambda: users_store)
+configure_memory_stats_store(
+    lambda: get_request_repository()._items,
+    lambda: get_match_repository()._items,
+)
 if settings.request_repository == "postgres":
     configure_user_lookup(resolve_authenticated_user)
 else:
@@ -1611,6 +1624,60 @@ async def delete_account(
     # アプリ側の匿名化が終わってから認証側を消す。逆順だと失敗時に本人が再試行できない。
     await delete_auth_user(current_user.user_id)
     return None
+
+
+@app.get("/admin/municipality-overview", response_model=MunicipalityOverviewResponse, tags=["Admin"], summary="自治体ダッシュボード用の集計を取得", description="管理者だけが取得できる。指定期間（既定は直近90日）について、依頼・マッチ・完了率などの集計を、地域別・カテゴリ別の内訳とともに返す。氏名・本文・座標などの個人情報は含まない。人数が minCellSize 未満の区分は個人特定を避けるため件数を伏せる（null）。fromDate/toDate は ISO 8601。段階2で自治体ロールを追加する際は地域で絞り込む。", responses=api_errors(401, 403, 422, 500))
+async def get_municipality_overview(
+    current_user: CurrentUser = Depends(get_current_user),
+    stats_repository: StatsRepository = Depends(get_stats_repository),
+    from_date: datetime | None = Query(default=None, alias="from", description="集計開始（この日時以降に作成）。省略時は toDate の90日前"),
+    to_date: datetime | None = Query(default=None, alias="to", description="集計終了（この日時より前に作成）。省略時は現在"),
+):
+    if current_user.role != "admin":
+        raise HTTPException(403, detail={"code": "ROLE_FORBIDDEN"})
+    until = to_date or datetime.now(timezone.utc)
+    since = from_date or (until - timedelta(days=90))
+    # naive な日時は UTC とみなし、比較で例外が出ないようにする。
+    if since.tzinfo is None:
+        since = since.replace(tzinfo=timezone.utc)
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    if since >= until:
+        raise HTTPException(422, detail={"code": "VALIDATION_ERROR"})
+
+    overview = await stats_repository.municipality_overview(
+        current_user, since=since, until=until,
+    )
+
+    def breakdown(buckets, labeler):
+        rows = []
+        for key, bucket in buckets.items():
+            rows.append({
+                "key": key,
+                "label": labeler(key),
+                "requests": suppress(bucket.requests),
+                "completed": suppress(bucket.completed),
+            })
+        # 件数の多い順。伏せた行（null）は末尾へ。
+        rows.sort(key=lambda row: (row["requests"] is None, -(row["requests"] or 0), row["key"]))
+        return rows
+
+    return {
+        "fromDate": since,
+        "toDate": until,
+        "minCellSize": MIN_CELL_SIZE,
+        "totals": {
+            "requestsCreated": overview.requests_created,
+            "requestsCompleted": overview.requests_completed,
+            "requestsCancelled": overview.requests_cancelled,
+            "matchesFormed": overview.matches_formed,
+            "matchesCompleted": overview.matches_completed,
+            "activeHelpers": suppress(overview.active_helpers),
+            "avgEstimatedMinutes": overview.avg_estimated_minutes(),
+        },
+        "byArea": breakdown(overview.by_area, area_label),
+        "byCategory": breakdown(overview.by_category, category_label),
+    }
 
 
 @app.get("/me/badges", response_model=BadgeSummaryResponse, tags=["Me"], summary="バッジ用の集計を取得", description="認証済み本人について、自分の依頼に来て未選択の応募数、進行中のマッチ数、相手からの未読メッセージ数を返す。ブロック関係の相手は除外する。状態は持たず、その時点の事実だけを数える。", responses=api_errors(401, 500))
