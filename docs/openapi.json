@@ -1176,6 +1176,166 @@
         "title": "MessageResponse",
         "type": "object"
       },
+      "MunicipalityBreakdownItem": {
+        "properties": {
+          "completed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "うち完了した件数。少人数のため伏せた場合はnull",
+            "title": "Completed"
+          },
+          "key": {
+            "description": "地域コードまたはカテゴリ識別子",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "description": "表示名",
+            "title": "Label",
+            "type": "string"
+          },
+          "requests": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "期間内の依頼数。少人数のため伏せた場合はnull",
+            "title": "Requests"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "requests",
+          "completed"
+        ],
+        "title": "MunicipalityBreakdownItem",
+        "type": "object"
+      },
+      "MunicipalityOverviewResponse": {
+        "properties": {
+          "byArea": {
+            "description": "地域別の内訳",
+            "items": {
+              "$ref": "#/components/schemas/MunicipalityBreakdownItem"
+            },
+            "title": "Byarea",
+            "type": "array"
+          },
+          "byCategory": {
+            "description": "カテゴリ別の内訳",
+            "items": {
+              "$ref": "#/components/schemas/MunicipalityBreakdownItem"
+            },
+            "title": "Bycategory",
+            "type": "array"
+          },
+          "fromDate": {
+            "description": "集計対象の開始日時（この日時以降に作成）",
+            "format": "date-time",
+            "title": "Fromdate",
+            "type": "string"
+          },
+          "minCellSize": {
+            "description": "この人数未満の区分は個人特定を避けるため伏せる（null表示）",
+            "title": "Mincellsize",
+            "type": "integer"
+          },
+          "toDate": {
+            "description": "集計対象の終了日時（この日時より前に作成）",
+            "format": "date-time",
+            "title": "Todate",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/MunicipalityTotals"
+          }
+        },
+        "required": [
+          "fromDate",
+          "toDate",
+          "minCellSize",
+          "totals",
+          "byArea",
+          "byCategory"
+        ],
+        "title": "MunicipalityOverviewResponse",
+        "type": "object"
+      },
+      "MunicipalityTotals": {
+        "properties": {
+          "activeHelpers": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "期間内に支援したおおよその人数。少人数のため伏せた場合はnull",
+            "title": "Activehelpers"
+          },
+          "avgEstimatedMinutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "依頼1件あたりの想定所要時間の平均（分）。依頼が無ければnull",
+            "title": "Avgestimatedminutes"
+          },
+          "matchesCompleted": {
+            "description": "期間内に成立し完了したマッチ数",
+            "title": "Matchescompleted",
+            "type": "integer"
+          },
+          "matchesFormed": {
+            "description": "期間内に成立したマッチ数",
+            "title": "Matchesformed",
+            "type": "integer"
+          },
+          "requestsCancelled": {
+            "description": "期間内に作成され取消・却下・期限切れになった依頼数",
+            "title": "Requestscancelled",
+            "type": "integer"
+          },
+          "requestsCompleted": {
+            "description": "期間内に作成され完了に至った依頼数",
+            "title": "Requestscompleted",
+            "type": "integer"
+          },
+          "requestsCreated": {
+            "description": "期間内に作成された依頼数（下書き・審査中を含む）",
+            "title": "Requestscreated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requestsCreated",
+          "requestsCompleted",
+          "requestsCancelled",
+          "matchesFormed",
+          "matchesCompleted",
+          "activeHelpers",
+          "avgEstimatedMinutes"
+        ],
+        "title": "MunicipalityTotals",
+        "type": "object"
+      },
       "OwnedRequestListResponse": {
         "description": "依頼者本人の依頼一覧。状態に関係なく含み、新しい順。",
         "properties": {
@@ -3781,6 +3941,145 @@
         "summary": "AI実績の公開範囲を更新",
         "tags": [
           "Achievements"
+        ]
+      }
+    },
+    "/admin/municipality-overview": {
+      "get": {
+        "description": "管理者だけが取得できる。指定期間（既定は直近90日）について、依頼・マッチ・完了率などの集計を、地域別・カテゴリ別の内訳とともに返す。氏名・本文・座標などの個人情報は含まない。人数が minCellSize 未満の区分は個人特定を避けるため件数を伏せる（null）。fromDate/toDate は ISO 8601。段階2で自治体ロールを追加する際は地域で絞り込む。",
+        "operationId": "get_municipality_overview_admin_municipality_overview_get",
+        "parameters": [
+          {
+            "description": "集計開始（この日時以降に作成）。省略時は toDate の90日前",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "集計開始（この日時以降に作成）。省略時は toDate の90日前",
+              "title": "From"
+            }
+          },
+          {
+            "description": "集計終了（この日時より前に作成）。省略時は現在",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "集計終了（この日時より前に作成）。省略時は現在",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MunicipalityOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "ROLE_FORBIDDEN",
+                    "details": {},
+                    "message": "この操作を行う権限がありません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "この操作を行う権限がありません"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "details": {},
+                    "message": "入力内容を確認してください",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "入力内容を確認してください"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "自治体ダッシュボード用の集計を取得",
+        "tags": [
+          "Admin"
         ]
       }
     },

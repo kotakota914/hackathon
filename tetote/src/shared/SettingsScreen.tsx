@@ -20,7 +20,7 @@ import { accountDeletionMessage, deleteAccount } from "../features/account/clien
 export default function HelperSettingsScreen() {
   const router = useRouter();
   const pathname = usePathname();
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
 
   const handleBack = () => {
     if (pathname.startsWith("/help")) {
@@ -284,6 +284,16 @@ export default function HelperSettingsScreen() {
               </Pressable>
             </View>
           </View>
+
+          {profile?.role === "admin" ? (
+            <View style={styles.menuGroup}>
+              <SettingButton
+                label="自治体ダッシュボード（管理者）"
+                onPress={() => router.push("/admin/dashboard")}
+                scale={scale}
+              />
+            </View>
+          ) : null}
 
           <View style={styles.menuGroup}>
             <SettingButton

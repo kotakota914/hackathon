@@ -107,3 +107,10 @@ OpenAPIには個別操作として現れない。管理画面、Realtime、実AI
 - 進行中のマッチがあれば 409 `ACCOUNT_HAS_ACTIVE_MATCH`。募集中の依頼は取消、未処理の応募は取下げにしたうえで、プロフィールを匿名化し、SuperTokens の利用者と全セッションを失効させる。
 - `users` 行は物理削除せず匿名化して残す（依頼・会話・レビューを相手のために保つ）。詳細と「何を消し何を残すか」の表は [account-deletion.md](account-deletion.md)。
 - 実装: `app/repositories/accounts.py`（Memory / Postgres）、DB 関数 `app.delete_own_account()`。
+
+### 自治体ダッシュボード（集計）
+
+- `GET /admin/municipality-overview?from=&to=`（管理者のみ、200）。期間内の依頼数・完了数・取消数、成立/完了マッチ数、支援した人数、平均所要時間と、地域別・カテゴリ別の内訳。
+- 個人情報は含まない。人数が `minCellSize`（5）未満の区分は件数を `null` で伏せる。
+- 実装: `app/repositories/stats.py`（Memory / Postgres）、DB 関数 `app.municipality_totals()` / `app.municipality_breakdown()`（security definer、内部で `app.is_admin()` を再確認）。
+- 段階2（自治体ロール・地域絞り込み）の計画は [municipality-dashboard.md](municipality-dashboard.md)。

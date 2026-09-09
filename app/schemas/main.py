@@ -593,3 +593,29 @@ class RecommendedRequestItem(ContractModel):
 class RecommendedRequestListResponse(ContractModel):
     items: list[RecommendedRequestItem]
     nextCursor: str | None = Field(description="次ページなしの場合null")
+
+
+class MunicipalityBreakdownItem(ContractModel):
+    key: str = Field(description="地域コードまたはカテゴリ識別子")
+    label: str = Field(description="表示名")
+    requests: int | None = Field(description="期間内の依頼数。少人数のため伏せた場合はnull")
+    completed: int | None = Field(description="うち完了した件数。少人数のため伏せた場合はnull")
+
+
+class MunicipalityTotals(ContractModel):
+    requestsCreated: int = Field(description="期間内に作成された依頼数（下書き・審査中を含む）")
+    requestsCompleted: int = Field(description="期間内に作成され完了に至った依頼数")
+    requestsCancelled: int = Field(description="期間内に作成され取消・却下・期限切れになった依頼数")
+    matchesFormed: int = Field(description="期間内に成立したマッチ数")
+    matchesCompleted: int = Field(description="期間内に成立し完了したマッチ数")
+    activeHelpers: int | None = Field(description="期間内に支援したおおよその人数。少人数のため伏せた場合はnull")
+    avgEstimatedMinutes: int | None = Field(description="依頼1件あたりの想定所要時間の平均（分）。依頼が無ければnull")
+
+
+class MunicipalityOverviewResponse(ContractModel):
+    fromDate: datetime = Field(description="集計対象の開始日時（この日時以降に作成）")
+    toDate: datetime = Field(description="集計対象の終了日時（この日時より前に作成）")
+    minCellSize: int = Field(description="この人数未満の区分は個人特定を避けるため伏せる（null表示）")
+    totals: MunicipalityTotals
+    byArea: list[MunicipalityBreakdownItem] = Field(description="地域別の内訳")
+    byCategory: list[MunicipalityBreakdownItem] = Field(description="カテゴリ別の内訳")
