@@ -12,7 +12,7 @@ import uuid
 from typing import Any, Awaitable, Callable, get_args
 from uuid import UUID, uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Path, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from fastapi.encoders import jsonable_encoder
@@ -41,6 +41,10 @@ from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
 )
+from app.repositories.push import (
+    PushSubscriptionRepository, get_push_subscription_repository,
+)
+from app.services import push as push_service
 from app.services.admin_bootstrap import (
     promote_in_memory, promote_in_postgres, with_admin_bootstrap,
 )
@@ -100,7 +104,8 @@ from app.schemas import (
     AchievementInput, AchievementResponse, AchievementVisibilityInput,
     ApplicationInput, ApplicationListResponse, ApplicationResponse,
     CharacterProgressResponse,
-    BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, MunicipalityOverviewResponse, CompletionInput, DisputeInput, ErrorResponse,
+    BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, MunicipalityOverviewResponse,
+    PushSubscriptionInput, PushUnsubscribeInput, VapidPublicKeyResponse, CompletionInput, DisputeInput, ErrorResponse,
     LocationResolveInput, LocationResolveResponse, MatchResponse, MessageInput,
     MaskingConfirmationResponse, MessageListResponse, MessageResponse,
     ProfileResponse, ProfileUpdateInput,
@@ -168,6 +173,7 @@ ERROR_MESSAGES = {
     "VALIDATION_ERROR": "入力内容を確認してください",
     "REGION_SELECTION_REQUIRED": "地域を選択してください",
     "ACCOUNT_HAS_ACTIVE_MATCH": "進行中の支援があるため退会できません。完了または取消をしてからもう一度お試しください",
+    "PUSH_DISABLED": "この環境ではプッシュ通知を利用できません",
     "INTERNAL_SERVER_ERROR": "サーバー内部でエラーが発生しました",
 }
 
@@ -472,6 +478,10 @@ async def message_repository_dependency() -> MessageRepository:
         repository.bind(messages)
     return repository
 
+async def push_subscription_repository_dependency() -> PushSubscriptionRepository:
+    return get_push_subscription_repository()
+
+
 async def user_settings_repository_dependency() -> UserSettingsRepository:
     return get_user_settings_repository()
 
@@ -752,6 +762,7 @@ async def reset_mock(
     await repository.reset()
     await application_repository.reset()
     await match_repository.reset()
+    await get_push_subscription_repository().reset()
     await message_repository.reset()
     await get_upload_repository().reset()
     await structure_audit_repository.reset()
@@ -1540,6 +1551,7 @@ async def list_applications(
 async def create_application(
     request_id: str,
     body: ApplicationInput,
+    background: BackgroundTasks,
     current_user: CurrentUser = Depends(get_current_user),
     repository: RequestRepository = Depends(request_repository_dependency),
     application_repository: ApplicationRepository = Depends(
@@ -1549,10 +1561,16 @@ async def create_application(
     request_item = await request_or_404(repository, current_user, request_id)
     if is_blocked_pair(current_user.user_id, request_item["requesterId"]):
         raise HTTPException(404, detail={"code": "REQUEST_NOT_FOUND"})
-    return await create_application_service(
+    application = await create_application_service(
         application_repository, current_user,
         request_item, body.model_dump(),
     )
+    # 依頼者へ「応募が届きました」。本文に応募者の情報は入れない。
+    background.add_task(
+        push_service.notify_quietly, request_item["requesterId"],
+        push_service.application_received("/help/requests"),
+    )
+    return application
 
 
 @app.post("/applications/{application_id}/withdraw", response_model=ApplicationResponse, tags=["Applications"], summary="応募を取り下げ", description="応募した本人だけがapplied状態をwithdrawnへ遷移できる。", responses=api_errors(401, 403, 404, 409, 500))
@@ -1568,6 +1586,7 @@ async def withdraw_application(
 async def select_application(
     application_id: str,
     body: SelectionInput,
+    background: BackgroundTasks,
     current_user: CurrentUser = Depends(get_current_user),
     repository: RequestRepository = Depends(request_repository_dependency),
     application_repository: ApplicationRepository = Depends(
@@ -1610,6 +1629,11 @@ async def select_application(
         matches[match["id"]] = match
         messages[match["id"]] = []
         await match_repository.create(current_user, match)
+    # 支援者へ「選ばれました」。
+    background.add_task(
+        push_service.notify_quietly, application["helperId"],
+        push_service.helper_selected("/helper/chats"),
+    )
     return match
 
 
@@ -1684,6 +1708,44 @@ async def get_municipality_overview(
         "byArea": breakdown(overview.by_area, area_label),
         "byCategory": breakdown(overview.by_category, category_label),
     }
+
+
+@app.get("/push/vapid-public-key", response_model=VapidPublicKeyResponse, tags=["Push"], summary="プッシュ通知の公開鍵を取得", description="ブラウザで購読するときに applicationServerKey へ渡す VAPID 公開鍵。サーバーに鍵が設定されていない環境では 404 PUSH_DISABLED。", responses=api_errors(401, 404, 500))
+async def get_vapid_public_key(
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    del current_user
+    key = push_service.vapid_public_key()
+    if not key:
+        raise HTTPException(404, detail={"code": "PUSH_DISABLED"})
+    return {"publicKey": key}
+
+
+@app.put("/push/subscriptions", status_code=204, tags=["Push"], summary="プッシュ通知の購読を登録", description="ブラウザが発行した購読先（endpoint と鍵）を本人の宛先として保存する。同じ endpoint は上書き。通知の本文には個人情報を含めない。鍵未設定の環境では 404 PUSH_DISABLED。", responses=api_errors(401, 404, 422, 500))
+async def register_push_subscription(
+    body: PushSubscriptionInput,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: PushSubscriptionRepository = Depends(push_subscription_repository_dependency),
+):
+    if not push_service.vapid_configured() and push_service._transport is None:
+        raise HTTPException(404, detail={"code": "PUSH_DISABLED"})
+    await repository.upsert(
+        current_user,
+        {"endpoint": body.endpoint, "p256dh": body.keys.p256dh, "auth": body.keys.auth},
+        user_agent=request.headers.get("user-agent"),
+    )
+    return None
+
+
+@app.delete("/push/subscriptions", status_code=204, tags=["Push"], summary="プッシュ通知の購読を解除", description="本人の購読先を 1 件削除する。存在しなくても 204。", responses=api_errors(401, 422, 500))
+async def unregister_push_subscription(
+    body: PushUnsubscribeInput,
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: PushSubscriptionRepository = Depends(push_subscription_repository_dependency),
+):
+    await repository.delete(current_user, body.endpoint)
+    return None
 
 
 @app.get("/me/badges", response_model=BadgeSummaryResponse, tags=["Me"], summary="バッジ用の集計を取得", description="認証済み本人について、自分の依頼に来て未選択の応募数、進行中のマッチ数、相手からの未読メッセージ数を返す。ブロック関係の相手は除外する。状態は持たず、その時点の事実だけを数える。", responses=api_errors(401, 500))
@@ -1841,8 +1903,10 @@ async def list_messages(
 async def create_message(
     match_id: str,
     body: MessageInput,
+    background: BackgroundTasks,
     current_user: CurrentUser = Depends(get_current_user),
     repository: MessageRepository = Depends(message_repository_dependency),
+    match_repository: MatchRepository = Depends(match_repository_dependency),
 ):
     moderation_status = "allowed"
     for pii_type, _, pattern in PII_MASK_RULES:
@@ -1865,6 +1929,16 @@ async def create_message(
     )
     if item is None:
         raise HTTPException(404, detail={"code": "MATCH_NOT_FOUND"})
+    # 相手へ「新しいメッセージ」。本文は送らない。
+    match_record = await match_repository.get(current_user, match_id)
+    if match_record is not None:
+        recipient_is_requester = match_record["helperId"] == current_user.user_id
+        recipient = match_record["requesterId"] if recipient_is_requester else match_record["helperId"]
+        chat_path = "/help/chat" if recipient_is_requester else "/helper/chat"
+        background.add_task(
+            push_service.notify_quietly, recipient,
+            push_service.message_received(f"{chat_path}?matchId={match_id}"),
+        )
     return item
 
 

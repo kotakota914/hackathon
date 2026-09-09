@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Switch,
   Modal,
+  Platform,
 } from "react-native";
 import {
   useRouter,
@@ -16,6 +17,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFontSize } from "../context/FontSizeContext";
 import { useAuth } from "../auth/AuthContext";
 import { accountDeletionMessage, deleteAccount } from "../features/account/client";
+import { getSettings, updateSettings } from "../features/settings/client";
+import {
+  PUSH_OUTCOME_MESSAGES,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "../features/push/client";
 
 export default function HelperSettingsScreen() {
   const router = useRouter();
@@ -32,6 +39,44 @@ export default function HelperSettingsScreen() {
 
   const [notificationsEnabled, setNotificationsEnabled] =
     useState(true);
+  const [notificationMessage, setNotificationMessage] = useState("");
+
+  // サーバーに保存された設定を最初に読み込む（端末をまたいで同じ値にする）。
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(() => {
+      void getSettings()
+        .then((settings) => {
+          if (active) setNotificationsEnabled(settings.notificationsEnabled);
+        })
+        .catch(() => undefined);
+    }, 0);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // 通知のオン・オフ。サーバー設定を更新し、Web ではブラウザの購読も合わせる。
+  const handleNotificationsChange = async (enabled: boolean) => {
+    setNotificationsEnabled(enabled);
+    setNotificationMessage("");
+    try {
+      await updateSettings({ notificationsEnabled: enabled });
+    } catch {
+      setNotificationsEnabled(!enabled);
+      setNotificationMessage("設定を保存できませんでした。もう一度お試しください。");
+      return;
+    }
+    if (Platform.OS !== "web") return;
+    if (enabled) {
+      const outcome = await subscribeToPush();
+      setNotificationMessage(PUSH_OUTCOME_MESSAGES[outcome]);
+    } else {
+      await unsubscribeFromPush();
+      setNotificationMessage("通知をオフにしました。");
+    }
+  };
 
   const [locationEnabled, setLocationEnabled] =
     useState(true);
@@ -137,7 +182,7 @@ export default function HelperSettingsScreen() {
 
               <Switch
                 value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
+                onValueChange={(value) => void handleNotificationsChange(value)}
                 trackColor={{
                   false: "#D9D9D9",
                   true: "#159326",
@@ -145,6 +190,11 @@ export default function HelperSettingsScreen() {
                 thumbColor="#FFFFFF"
               />
             </View>
+            {notificationMessage ? (
+              <Text accessibilityLiveRegion="polite" style={[styles.settingNote, { fontSize: fs(12), lineHeight: fs(18) }]}>
+                {notificationMessage}
+              </Text>
+            ) : null}
 
             <View style={styles.divider} />
 
@@ -886,6 +936,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     marginTop: 10,
+  },
+
+  settingNote: {
+    color: "#555555",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
 
   modalError: {

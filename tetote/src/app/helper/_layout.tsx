@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { badgeLabel } from "../../features/badges/client";
 import { useBadges } from "../../features/badges/useBadges";
+import { usePushSync } from "../../features/push/usePushSync";
 
 type TabIconProps = {
   focused: boolean;
@@ -68,6 +69,8 @@ function TabIcon({
 export default function HelperLayout() {
   // 未読メッセージなどの件数を30秒ごとに取り直し、タブに出す。
   const badges = useBadges();
+  // 許可済みの通知購読をサーバーへ登録し直す（新たに許可は求めない）。
+  usePushSync();
   return (
     <Tabs
       screenOptions={{

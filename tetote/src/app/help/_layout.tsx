@@ -7,6 +7,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { badgeLabel } from "../../features/badges/client";
 import { useBadges } from "../../features/badges/useBadges";
+import { usePushSync } from "../../features/push/usePushSync";
 
 type TabIconProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -55,6 +56,8 @@ const hiddenTabOptions = {
 export default function HelpLayout() {
   // 未読メッセージなどの件数を30秒ごとに取り直し、タブに出す。
   const badges = useBadges();
+  // 許可済みの通知購読をサーバーへ登録し直す（新たに許可は求めない）。
+  usePushSync();
   return (
     <Tabs
       screenOptions={{

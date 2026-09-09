@@ -619,3 +619,22 @@ class MunicipalityOverviewResponse(ContractModel):
     totals: MunicipalityTotals
     byArea: list[MunicipalityBreakdownItem] = Field(description="地域別の内訳")
     byCategory: list[MunicipalityBreakdownItem] = Field(description="カテゴリ別の内訳")
+
+
+class PushSubscriptionKeys(ContractModel):
+    p256dh: str = Field(min_length=20, max_length=512, description="ブラウザが発行する公開鍵（base64url）")
+    auth: str = Field(min_length=8, max_length=256, description="ブラウザが発行する認証シークレット（base64url）")
+
+
+class PushSubscriptionInput(ContractModel):
+    endpoint: str = Field(min_length=20, max_length=2048, pattern=r"^https://", description="PushSubscription.endpoint")
+    keys: PushSubscriptionKeys
+
+
+class PushUnsubscribeInput(ContractModel):
+    endpoint: str = Field(min_length=20, max_length=2048)
+
+
+class VapidPublicKeyResponse(ContractModel):
+    publicKey: str = Field(description="購読時に applicationServerKey へ渡す base64url の公開鍵")
+

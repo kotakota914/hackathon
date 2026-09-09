@@ -1829,6 +1829,66 @@
         "title": "ProfileUpdateInput",
         "type": "object"
       },
+      "PushSubscriptionInput": {
+        "properties": {
+          "endpoint": {
+            "description": "PushSubscription.endpoint",
+            "maxLength": 2048,
+            "minLength": 20,
+            "pattern": "^https://",
+            "title": "Endpoint",
+            "type": "string"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/PushSubscriptionKeys"
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys"
+        ],
+        "title": "PushSubscriptionInput",
+        "type": "object"
+      },
+      "PushSubscriptionKeys": {
+        "properties": {
+          "auth": {
+            "description": "ブラウザが発行する認証シークレット（base64url）",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Auth",
+            "type": "string"
+          },
+          "p256dh": {
+            "description": "ブラウザが発行する公開鍵（base64url）",
+            "maxLength": 512,
+            "minLength": 20,
+            "title": "P256Dh",
+            "type": "string"
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
+        ],
+        "title": "PushSubscriptionKeys",
+        "type": "object"
+      },
+      "PushUnsubscribeInput": {
+        "properties": {
+          "endpoint": {
+            "maxLength": 2048,
+            "minLength": 20,
+            "title": "Endpoint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint"
+        ],
+        "title": "PushUnsubscribeInput",
+        "type": "object"
+      },
       "RecommendedRequestItem": {
         "properties": {
           "reason": {
@@ -3165,6 +3225,20 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VapidPublicKeyResponse": {
+        "properties": {
+          "publicKey": {
+            "description": "購読時に applicationServerKey へ渡す base64url の公開鍵",
+            "title": "Publickey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publicKey"
+        ],
+        "title": "VapidPublicKeyResponse",
         "type": "object"
       },
       "VerificationDecisionInput": {
@@ -6052,6 +6126,271 @@
         "summary": "プロフィール画像を取得",
         "tags": [
           "Profile"
+        ]
+      }
+    },
+    "/push/subscriptions": {
+      "delete": {
+        "description": "本人の購読先を 1 件削除する。存在しなくても 204。",
+        "operationId": "unregister_push_subscription_push_subscriptions_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushUnsubscribeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "details": {},
+                    "message": "入力内容を確認してください",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "入力内容を確認してください"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "プッシュ通知の購読を解除",
+        "tags": [
+          "Push"
+        ]
+      },
+      "put": {
+        "description": "ブラウザが発行した購読先（endpoint と鍵）を本人の宛先として保存する。同じ endpoint は上書き。通知の本文には個人情報を含めない。鍵未設定の環境では 404 PUSH_DISABLED。",
+        "operationId": "register_push_subscription_push_subscriptions_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscriptionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "REQUEST_NOT_FOUND",
+                    "details": {},
+                    "message": "対象が見つかりません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "対象が見つかりません"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "details": {},
+                    "message": "入力内容を確認してください",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "入力内容を確認してください"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "プッシュ通知の購読を登録",
+        "tags": [
+          "Push"
+        ]
+      }
+    },
+    "/push/vapid-public-key": {
+      "get": {
+        "description": "ブラウザで購読するときに applicationServerKey へ渡す VAPID 公開鍵。サーバーに鍵が設定されていない環境では 404 PUSH_DISABLED。",
+        "operationId": "get_vapid_public_key_push_vapid_public_key_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VapidPublicKeyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "REQUEST_NOT_FOUND",
+                    "details": {},
+                    "message": "対象が見つかりません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "対象が見つかりません"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "プッシュ通知の公開鍵を取得",
+        "tags": [
+          "Push"
         ]
       }
     },
