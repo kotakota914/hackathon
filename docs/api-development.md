@@ -120,3 +120,9 @@ OpenAPIには個別操作として現れない。管理画面、Realtime、実AI
 - `POST /matches/{match_id}/reviews`（completed なマッチの当事者、相手へ 1 件）。Memory / Postgres の Repository（`app/repositories/reviews.py`）に保存する。以前はメモリ上の辞書だけで、本番では保存されなかった。
 - 公開プロフィール `GET /users/{user_id}/public-profile` の `reviewSummary` に件数と「良かった点」の件数を出す。本文と評価者は出さない。
 
+### AI 実績プロフィールの保存
+
+- `POST /achievements/generate`（completed なマッチの**支援者本人**）と `PATCH /achievements/visibility` は `app/repositories/achievements.py`（Memory / Postgres）に保存する。以前はメモリ上の辞書だけで、本番では消えていた。
+- 1 利用者 1 件。生成し直すと承認と公開範囲はやり直し。`members` は DB では `unlisted`。`public` は本人の承認（`approved=true`）が必須。
+- DB 関数: `app.upsert_own_achievement()`、`app.set_own_achievement_visibility()`（security definer、本人のみ）。
+

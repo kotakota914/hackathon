@@ -41,6 +41,10 @@ from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
 )
+from app.repositories.achievements import (
+    AchievementApprovalRequiredError, AchievementNotFoundError, AchievementRepository,
+    get_achievement_repository,
+)
 from app.repositories.reviews import (
     DuplicateReviewError, ReviewRepository, get_review_repository,
 )
@@ -2103,46 +2107,46 @@ async def generate_achievement(
     body: AchievementInput,
     current_user: CurrentUser = Depends(get_current_user),
     repository: RequestRepository = Depends(request_repository_dependency),
+    match_repository: MatchRepository = Depends(match_repository_dependency),
+    achievement_repository: AchievementRepository = Depends(get_achievement_repository),
 ):
-    match = match_or_404(body.matchId)
-    ensure_match_participant(match, current_user.user_id)
+    # マッチは Repository（本番は Postgres）が正本。メモリ上の辞書は見ない。
+    match = await match_repository.get(current_user, body.matchId)
+    if match is None:
+        raise HTTPException(404, detail={"code": "MATCH_NOT_FOUND"})
+    if ensure_match_participant(match, current_user.user_id) != "helper":
+        # 実績は支援した本人のもの。依頼者は作れない。
+        raise HTTPException(403, detail={"code": "ROLE_FORBIDDEN"})
     if match["status"] != "completed":
         raise HTTPException(409, detail={"code": "MATCH_NOT_COMPLETED"})
-    request_item = await request_or_404(repository, current_user, match["requestId"])
-    item = {
-        "id": new_id("ach"),
-        "userId": match["helperId"],
-        "matchId": match["id"],
-        "generatedText": "地域住民の依頼に対応し、安全に配慮しながら支援活動を完了した。",
-        "facts": {"category": request_item["category"], "minutes": request_item["estimatedMinutes"]},
-        "visibility": body.visibility,
-        "status": "generated",
-        "modelName": "mock-model",
-        "promptVersion": "mock-v1",
-        "generatedAt": now_iso(),
-        "approvedAt": None,
+    request_item = await repository.get(current_user, match["requestId"])
+    facts = {
+        "category": request_item["category"] if request_item else "",
+        "minutes": (request_item or {}).get("estimatedMinutes") or 0,
     }
-    achievements[item["id"]] = item
-    return item
+    return await achievement_repository.upsert(
+        current_user, match_id=match["id"],
+        text="地域住民の依頼に対応し、安全に配慮しながら支援活動を完了した。",
+        facts=facts, model_name="mock-model", prompt_version="mock-v1",
+        visibility=body.visibility,
+    )
 
 
 @app.patch("/achievements/visibility", response_model=AchievementResponse, tags=["Achievements"], summary="AI実績の公開範囲を更新", description="実績の対象本人だけが変更できる。public指定はapproved=trueによる本人承認が必須。", responses=api_errors(401, 403, 404, 409, 422, 500))
 async def update_achievement_visibility(
     body: AchievementVisibilityInput,
     current_user: CurrentUser = Depends(get_current_user),
+    achievement_repository: AchievementRepository = Depends(get_achievement_repository),
 ):
-    item = achievements.get(body.achievementId)
-    if not item:
+    try:
+        return await achievement_repository.set_visibility(
+            current_user, achievement_id=body.achievementId,
+            visibility=body.visibility, approved=body.approved,
+        )
+    except AchievementNotFoundError:
         raise HTTPException(404, detail={"code": "ACHIEVEMENT_NOT_FOUND"})
-    if item["userId"] != current_user.user_id:
-        raise HTTPException(403, detail={"code": "ROLE_FORBIDDEN"})
-    if body.visibility == "public" and not body.approved:
+    except AchievementApprovalRequiredError:
         raise HTTPException(409, detail={"code": "ACHIEVEMENT_APPROVAL_REQUIRED"})
-    item["visibility"] = body.visibility
-    if body.approved:
-        item["approvedAt"] = now_iso()
-        item["status"] = "approved"
-    return item
 
 
 @app.get("/character-progress", response_model=CharacterProgressResponse, tags=["Character"], summary="自分のキャラクター進捗を取得", description="認証済み本人が支援者として完了したマッチだけを集計し、累計ポイント・支援回数・段階・次段階までのポイント・表示キャラクター識別子を返す。集計値はクライアント入力を使わない。", responses=api_errors(401, 500))
