@@ -70,6 +70,8 @@ class CurrentUser:
     email_verified: bool
     verification_status: str
     mfa_completed: bool = False
+    # 登録地域。本番では Postgres のプロフィールから入る（現在地が取れないときの既定）。
+    area_code: str | None = None
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -234,6 +236,7 @@ def _current_user_from_record(
         email_verified=record.get("emailVerified", False),
         verification_status=record.get("verificationStatus", "unverified"),
         mfa_completed=mfa_completed,
+        area_code=record.get("areaCode"),
     )
 
 
