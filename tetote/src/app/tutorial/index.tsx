@@ -46,7 +46,11 @@ export default function TutorialMenuScreen() {
           </View>
         </Pressable>
 
-        <View style={[styles.card, styles.cardDisabled]} accessibilityState={{ disabled: true }}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: "/tutorial/helper", params: { next: returnTo } })}
+          style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+        >
           <Image
             source={require("../../../assets/onboarding_asset/c2.png")}
             style={styles.cardImage}
@@ -57,9 +61,11 @@ export default function TutorialMenuScreen() {
             <Text style={[styles.cardBody, { fontSize: fs(13), lineHeight: fs(20) }]}>
               近くの依頼を見る → 応募する → 選ばれる → やり取り → 完了報告
             </Text>
-            <Text style={[styles.done, { fontSize: fs(12) }]}>準備中</Text>
+            {hasCompletedTutorial("helper") ? (
+              <Text style={[styles.done, { fontSize: fs(12) }]}>体験済み ・ もう一度できます</Text>
+            ) : null}
           </View>
-        </View>
+        </Pressable>
 
         <Pressable
           accessibilityRole="button"
@@ -102,10 +108,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 2,
     borderColor: TUTORIAL_COLORS.orange,
-  },
-  cardDisabled: {
-    opacity: 0.55,
-    borderColor: "#DDDDDD",
   },
   cardImage: {
     width: 64,
