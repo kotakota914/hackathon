@@ -62,6 +62,9 @@ from .main import (
     MunicipalityBreakdownItem,
     MunicipalityTotals,
     MunicipalityOverviewResponse,
+    PushSubscriptionInput,
+    PushUnsubscribeInput,
+    VapidPublicKeyResponse,
 )
 
 __all__ = [name for name in globals() if not name.startswith("_")]

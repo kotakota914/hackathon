@@ -6,7 +6,7 @@
  * - 画面の遷移（HTML）はネットワーク優先。失敗したときだけ最後に開けたトップページを出す。
  * - API（別オリジン）や POST などはいっさい触らない。個人情報をキャッシュしない。
  */
-const VERSION = "fitt0-sw-v1";
+const VERSION = "fitt0-sw-v2";
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const SHELL_URLS = ["/", "/manifest.webmanifest"];
@@ -34,6 +34,44 @@ function isStaticAsset(url) {
     url.pathname === "/favicon.ico"
   );
 }
+
+/* プッシュ通知。サーバーは本文に個人情報を入れず、事実と開く画面だけを送る。 */
+self.addEventListener("push", (event) => {
+  let data = { title: "fitt0", body: "新しいお知らせがあります", url: "/", tag: "general" };
+  try {
+    if (event.data) data = Object.assign(data, event.data.json());
+  } catch (_error) {
+    /* 文字列だけのときは本文として扱う */
+    if (event.data) data.body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: data.tag,
+      renotify: true,
+      data: { url: data.url },
+    }),
+  );
+});
+
+/* 通知を押したら、その画面を開く（開いていれば手前に出す）。 */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if ("focus" in client) {
+          if ("navigate" in client) client.navigate(target).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
+});
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
