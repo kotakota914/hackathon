@@ -717,6 +717,26 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "ExpireRequestsResponse": {
+        "properties": {
+          "closedApplications": {
+            "description": "あわせて閉じた未処理の応募の数",
+            "title": "Closedapplications",
+            "type": "integer"
+          },
+          "expiredRequests": {
+            "description": "expired に変えた依頼の数",
+            "title": "Expiredrequests",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expiredRequests",
+          "closedApplications"
+        ],
+        "title": "ExpireRequestsResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2343,6 +2363,19 @@
             "minimum": 10.0,
             "title": "Estimatedminutes",
             "type": "integer"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "募集の期限（予定日時 + 24 時間）。過ぎると公開一覧に出なくなる。無ければnull",
+            "title": "Expiresat"
           },
           "id": {
             "title": "Id",
@@ -4639,6 +4672,110 @@
         "summary": "Health",
         "tags": [
           "System"
+        ]
+      }
+    },
+    "/jobs/expire-requests": {
+      "get": {
+        "description": "Vercel Cron などから 1 日 1 回呼ぶ。Authorization: Bearer <CRON_SECRET> が必要で、CRON_SECRET 未設定の環境では 404。期限（予定日時 + 24 時間）を過ぎた published / matching の依頼を expired に変え、未処理の応募を cancelled にする。公開一覧は期限を過ぎた時点で自動的に隠れるため、この処理は状態の確定と後片付けが目的。",
+        "operationId": "run_request_expiry_jobs_expire_requests_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpireRequestsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "REQUEST_NOT_FOUND",
+                    "details": {},
+                    "message": "対象が見つかりません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "対象が見つかりません"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "summary": "期限切れの依頼を確定する定期処理",
+        "tags": [
+          "Jobs"
         ]
       }
     },

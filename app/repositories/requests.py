@@ -13,6 +13,7 @@ from typing import Any, Protocol, Sequence
 import uuid
 
 from app.auth import CurrentUser
+from app.services.request_expiry import expires_at_for, is_expired
 from app.db import actor_connection
 from app.settings import settings
 
@@ -245,7 +246,10 @@ class MemoryRequestRepository:
                    blocked_requester_ids: Sequence[str] | None = None) -> list[RequestRecord]:
         del actor
         blocked_requester_ids = blocked_requester_ids or ()
-        items = [item for item in self._items.values() if item["status"] == "published"]
+        items = [
+            item for item in self._items.values()
+            if item["status"] == "published" and not is_expired(item.get("expiresAt"))
+        ]
         if category is not None:
             items = [item for item in items if item["category"] == category]
         if area_code is not None:
@@ -301,7 +305,8 @@ class MemoryRequestRepository:
             **deepcopy(values), "areaLabel": "大学周辺・約1km", "distanceKm": 1.0,
             "acceptedHelpers": 0, "status": "draft", "version": 1,
             "warnings": [], "createdAt": now, "updatedAt": now,
-            "expiresAt": None, "verificationRequired": False,
+            "expiresAt": _iso(expires_at_for(values.get("scheduledAt"))),
+            "verificationRequired": False,
             "_requesterVerificationStatus": actor.verification_status,
         }
         self._items[item["id"]] = item
@@ -314,6 +319,8 @@ class MemoryRequestRepository:
         if item is None or item["version"] != expected_version:
             return None
         item.update(deepcopy(changes))
+        if "scheduledAt" in changes:
+            item["expiresAt"] = _iso(expires_at_for(changes["scheduledAt"]))
         item["version"] += 1
         item["updatedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         return _public_record(item)
@@ -401,6 +408,7 @@ class PostgresRequestRepository:
             rows = await conn.fetch(
                 self._SELECT + """
                  where r.status = 'published'
+                   and (r.expires_at is null or r.expires_at > now())
                    and ($1::text is null or r.category_id = $1)
                    and ($2::text is null or r.area_code = $2)
                    and ($3::timestamptz is null or r.scheduled_at >= $3::timestamptz)
@@ -459,14 +467,15 @@ class PostgresRequestRepository:
             row = await conn.fetchrow(
                 """insert into requests (
                        requester_id, title, original_text, category_id, risk_level,
-                       area_code, scheduled_at, estimated_minutes, required_helpers
-                   ) values (app.current_actor(), $1, $2, $3, $4, $5, $6, $7, $8)
+                       area_code, scheduled_at, estimated_minutes, required_helpers, expires_at
+                   ) values (app.current_actor(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
                    returning id, title, original_text, category_id, risk_level, area_code,
                      scheduled_at, estimated_minutes, required_helpers, status, version,
                      expires_at, verification_required, created_at, updated_at""",
                 values["title"], values["description"], values["category"], values["riskLevel"],
                 values["areaCode"], datetime.fromisoformat(values["scheduledAt"]),
                 values["estimatedMinutes"], values["requiredHelpers"],
+                expires_at_for(values["scheduledAt"]),
             )
         return _public_record(_row_to_record({
             **dict(row),
@@ -486,6 +495,11 @@ class PostgresRequestRepository:
             )
             if updated is None:
                 return None
+            if "scheduledAt" in changes:
+                await conn.fetchval(
+                    "select app.set_request_expiry($1, $2)",
+                    uuid.UUID(request_id), expires_at_for(changes["scheduledAt"]),
+                )
             row = await conn.fetchrow(self._SELECT + " where r.id = $1", uuid.UUID(request_id))
         return _public_record(_row_to_record(row))
 
