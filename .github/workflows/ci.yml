@@ -73,10 +73,8 @@ jobs:
       - name: vitest
         run: npm test
 
-      # lint は現時点で既存エラーが残っているため、まず結果だけ見える形で回す。
-      # エラーを解消したら continue-on-error を外して必須にする。
-      - name: ESLint (参考・失敗しても止めない)
-        continue-on-error: true
+      # 既存の lint エラーは解消済み。以後は失敗したら CI を止める。
+      - name: ESLint
         run: npx eslint src
 
   web-build:
