@@ -30,6 +30,13 @@ export default function RoleScreen() {
   };
 
   const selectHelper = () => {
+    if (!hasCompletedTutorial("helper")) {
+      router.push({
+        pathname: "/tutorial/helper",
+        params: { next: "/onboarding/helper/helper-profile" },
+      });
+      return;
+    }
     router.push("/onboarding/helper/helper-profile");
   };
 
