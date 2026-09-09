@@ -72,6 +72,7 @@ Vercel の Environment Variables と PowerShell の環境変数にだけ入れ�
    | `API_DOMAIN` | `https://fitt0-api.vercel.app` |
    | `WEBSITE_DOMAIN` | `https://fitt0-app.vercel.app` |
    | `AUTH_COOKIE_SAME_SITE` | `none` |
+   | `ADMIN_AUTH_SUBJECTS` | 管理者にしたい自分の SuperTokens ユーザーID（任意。あとから追加してもよい） |
 
 4. Deploy 後、Settings → Domains に `fitt0-api.vercel.app` を追加する。
    新規プロジェクトの既定 URL は `fitt0-api-<team>.vercel.app` になり、

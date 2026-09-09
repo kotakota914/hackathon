@@ -131,6 +131,7 @@ cd tetote && npx tsc --noEmit && npm test
 | `REQUEST_REPOSITORY=postgres`, `DATABASE_URL` | Supabase への接続 |
 | `SUPERTOKENS_ENABLED=true`, `SUPERTOKENS_CONNECTION_URI`, `SUPERTOKENS_API_KEY` | 認証 |
 | `WEBSITE_DOMAIN`, `API_DOMAIN`, `AUTH_COOKIE_SAME_SITE` | フロントのオリジン（CORS）と Cookie 設定 |
+| `ADMIN_AUTH_SUBJECTS` | 管理者にする SuperTokens ユーザーID（カンマ区切り）。ログイン時に `role=admin` へ。自治体ダッシュボードなどの管理者機能に必要 |
 | `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` | AI（未設定ならルールのみで動作） |
 | `EXPO_PUBLIC_API_URL`（フロント） | API の URL。未設定・http・localhost だとビルドを止める |
 
