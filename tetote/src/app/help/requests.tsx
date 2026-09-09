@@ -92,7 +92,12 @@ export default function MyRequestsScreen() {
       <Pressable onPress={() => void cancel()} style={styles.danger}><Text style={styles.primaryText}>依頼を取り消す</Text></Pressable>
       <Text style={styles.subheading}>応募者</Text>
       {applicants.length === 0 ? <Text>応募者はまだいません。</Text> : applicants.map((applicant) => <View key={applicant.id} style={styles.applicant}>
-        <Text style={styles.title}>{applicant.helper.displayName}</Text>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => router.push({ pathname: "/users/[userId]", params: { userId: applicant.helper.id } })}
+        >
+          <Text style={[styles.title, styles.link]}>{applicant.helper.displayName} ›</Text>
+        </Pressable>
         <Text>{applicant.message}</Text><Text>実績 {applicant.helper.achievementCount}件</Text>
         <Pressable onPress={() => void choose(applicant)} style={styles.primary}><Text style={styles.primaryText}>この人にお願いする</Text></Pressable>
       </View>)}

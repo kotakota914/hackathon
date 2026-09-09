@@ -638,3 +638,22 @@ class PushUnsubscribeInput(ContractModel):
 class VapidPublicKeyResponse(ContractModel):
     publicKey: str = Field(description="購読時に applicationServerKey へ渡す base64url の公開鍵")
 
+
+class PublicProfileCharacter(ContractModel):
+    stage: int = Field(description="キャラクターの段階（1始まり）")
+    maxStage: int
+    characterId: str = Field(description="表示するキャラクター識別子（c1など）")
+    helpCount: int
+
+
+class PublicProfileResponse(ContractModel):
+    userId: str
+    displayName: str
+    verificationStatus: str = Field(description="unverified / pending / approved / rejected / expired")
+    memberSince: str | None = Field(description="参加した月（YYYY-MM）。不明ならnull")
+    completedCount: int = Field(description="支援者として完了した回数")
+    totalMinutes: int = Field(description="完了した支援の想定所要時間の合計（分）")
+    character: PublicProfileCharacter
+    achievementText: str | None = Field(description="本人が公開を承認したAI実績文。無ければnull")
+    achievementApprovedAt: datetime | None
+

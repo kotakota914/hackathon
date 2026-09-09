@@ -41,6 +41,9 @@ from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
 )
+from app.repositories.public_profiles import (
+    PublicProfileRepository, get_public_profile_repository,
+)
 from app.repositories.push import (
     PushSubscriptionRepository, get_push_subscription_repository,
 )
@@ -105,7 +108,7 @@ from app.schemas import (
     ApplicationInput, ApplicationListResponse, ApplicationResponse,
     CharacterProgressResponse,
     BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, MunicipalityOverviewResponse,
-    PushSubscriptionInput, PushUnsubscribeInput, VapidPublicKeyResponse, CompletionInput, DisputeInput, ErrorResponse,
+    PushSubscriptionInput, PushUnsubscribeInput, VapidPublicKeyResponse, PublicProfileResponse, CompletionInput, DisputeInput, ErrorResponse,
     LocationResolveInput, LocationResolveResponse, MatchResponse, MessageInput,
     MaskingConfirmationResponse, MessageListResponse, MessageResponse,
     ProfileResponse, ProfileUpdateInput,
@@ -174,6 +177,7 @@ ERROR_MESSAGES = {
     "REGION_SELECTION_REQUIRED": "地域を選択してください",
     "ACCOUNT_HAS_ACTIVE_MATCH": "進行中の支援があるため退会できません。完了または取消をしてからもう一度お試しください",
     "PUSH_DISABLED": "この環境ではプッシュ通知を利用できません",
+    "USER_NOT_FOUND": "利用者が見つかりません",
     "INTERNAL_SERVER_ERROR": "サーバー内部でエラーが発生しました",
 }
 
@@ -1746,6 +1750,46 @@ async def unregister_push_subscription(
 ):
     await repository.delete(current_user, body.endpoint)
     return None
+
+
+@app.get("/users/{user_id}/public-profile", response_model=PublicProfileResponse, tags=["Profile"], summary="他の利用者の公開プロフィールを取得", description="依頼者が応募者を選ぶときなどに見る、相手の実績プロフィール。表示名・本人確認の状態・参加月・完了した支援の回数と合計時間・キャラクター段階・本人が公開を承認したAI実績文だけを返し、地域・年齢・大学・勤務先などの個人情報は返さない。退会済み・存在しない・ブロック関係の相手は404。", responses=api_errors(401, 404, 500))
+async def get_public_profile(
+    user_id: str = Path(min_length=1, max_length=120),
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: PublicProfileRepository = Depends(get_public_profile_repository),
+):
+    record = await repository.get(current_user, user_id)
+    if record is None:
+        raise HTTPException(404, detail={"code": "USER_NOT_FOUND"})
+    # キャラクターの段階は本人の画面と同じ規則（services/character.py）で計算する。
+    # 合計時間しか無いので、1 回あたりの点数は「回数×基本点 + 合計分」で同じ結果になる。
+    progress = character.build_progress(
+        user_id,
+        [{"matchId": f"agg-{i}", "estimatedMinutes": minutes}
+         for i, minutes in enumerate(_split_minutes(record["completedCount"], record["totalMinutes"]))],
+    )
+    return {
+        "userId": user_id,
+        "displayName": record["displayName"],
+        "verificationStatus": record["verificationStatus"],
+        "memberSince": record["memberSince"],
+        "completedCount": record["completedCount"],
+        "totalMinutes": record["totalMinutes"],
+        "character": {
+            "stage": progress["stage"], "maxStage": progress["maxStage"],
+            "characterId": progress["characterId"], "helpCount": progress["helpCount"],
+        },
+        "achievementText": record["achievementText"],
+        "achievementApprovedAt": record["achievementApprovedAt"],
+    }
+
+
+def _split_minutes(count: int, total_minutes: int) -> list[int]:
+    """回数と合計分から、点数計算用の「1回ごとの分」を作る（合計は変えない）。"""
+    if count <= 0:
+        return []
+    base, extra = divmod(max(0, total_minutes), count)
+    return [base + (1 if i < extra else 0) for i in range(count)]
 
 
 @app.get("/me/badges", response_model=BadgeSummaryResponse, tags=["Me"], summary="バッジ用の集計を取得", description="認証済み本人について、自分の依頼に来て未選択の応募数、進行中のマッチ数、相手からの未読メッセージ数を返す。ブロック関係の相手は除外する。状態は持たず、その時点の事実だけを数える。", responses=api_errors(401, 500))
