@@ -287,6 +287,14 @@ export default function HelperSettingsScreen() {
 
           <View style={styles.menuGroup}>
             <SettingButton
+              label="使い方を体験する"
+              onPress={() =>
+                router.push({ pathname: "/tutorial", params: { next: pathname } })
+              }
+              scale={scale}
+            />
+
+            <SettingButton
               label="ヘルプ"
               onPress={() => {}}
               scale={scale}

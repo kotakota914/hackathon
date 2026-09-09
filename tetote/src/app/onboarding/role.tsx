@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 
 import HelpIcon from "../../../assets/onboarding_asset/help.svg";
 import HelperIcon from "../../../assets/onboarding_asset/helper.svg";
+import { hasCompletedTutorial } from "../../features/tutorial/storage";
 
 export default function RoleScreen() {
   const router = useRouter();
@@ -17,6 +18,14 @@ export default function RoleScreen() {
   const isDesktop = width >= 768;
 
   const selectRequester = () => {
+    // 初めての人は先に練習モードへ。終える（またはやめる）とプロフィール入力に戻る。
+    if (!hasCompletedTutorial("requester")) {
+      router.push({
+        pathname: "/tutorial/requester",
+        params: { next: "/onboarding/requester/requester-profile" },
+      });
+      return;
+    }
     router.push("/onboarding/requester/requester-profile");
   };
 
