@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, Literal
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,9 @@ _DECISIONS: dict[RiskLevel, Decision] = {
 }
 
 # 深夜帯の境界。22時から翌6時までを審査対象とする。
+# 時刻は日本時間で判定する。フロントは +09:00 付きで送るが、UTC("Z")で届いた場合に
+# 表記どおりの時刻で見ると 07〜15 時 JST の依頼が深夜扱いになるため、必ず変換してから比べる。
+SERVICE_TIMEZONE = timezone(timedelta(hours=9), "JST")
 LATE_NIGHT_FROM_HOUR = 22
 LATE_NIGHT_UNTIL_HOUR = 6
 
@@ -158,7 +161,10 @@ def _late_night(scheduled_at: str | None) -> bool:
     except ValueError:
         # 形式検証は入力スキーマの責務。ここでは判定できないものを危険側に倒さない。
         return False
-    hour = moment.hour
+    if moment.tzinfo is None:
+        # タイムゾーンが無い表記は日本時間として扱う。
+        moment = moment.replace(tzinfo=SERVICE_TIMEZONE)
+    hour = moment.astimezone(SERVICE_TIMEZONE).hour
     return hour >= LATE_NIGHT_FROM_HOUR or hour < LATE_NIGHT_UNTIL_HOUR
 
 
