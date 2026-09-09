@@ -134,7 +134,17 @@ export default function ProfileScreen() {
               アイコンを変える
             </Text>
 
+            {profile?.id ? (
             <Pressable
+              accessibilityRole="link"
+              onPress={() => router.push({ pathname: "/users/[userId]", params: { userId: profile.id } })}
+              style={styles.publicProfileLink}
+            >
+              <Text style={styles.publicProfileLinkText}>ほかの人から見える公開プロフィールを見る ›</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
               style={({ pressed }) => [
                 styles.photoButton,
                 pressed && styles.pressed,
@@ -296,6 +306,17 @@ function ProfileField({
 
 const createStyles = (scale: number) =>
   StyleSheet.create({
+    publicProfileLink: {
+      alignSelf: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+    },
+    publicProfileLinkText: {
+      color: "#245C2D",
+      fontSize: 14 * scale,
+      fontWeight: "700",
+      textDecorationLine: "underline",
+    },
     screen: {
       flex: 1,
       backgroundColor: "#FFF5E9",
