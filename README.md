@@ -136,6 +136,9 @@ cd tetote && npx tsc --noEmit && npm test
 
 提出前の確認手順は [docs/submission-checklist.md](docs/submission-checklist.md) を参照。
 
+自分のアカウントで Supabase / SuperTokens / Vercel を用意する手順は [docs/infra-setup.md](docs/infra-setup.md)、
+DB への migration 適用は `scripts/apply_migrations.py` を使う。
+
 ## ドキュメント
 
 - [docs/api-development.md](docs/api-development.md) — API 開発ガイドと実装状況
@@ -145,6 +148,7 @@ cd tetote && npx tsc --noEmit && npm test
 - [docs/request-publish-flow.md](docs/request-publish-flow.md) — 依頼の公開・取消の状態遷移
 - [docs/safety-reporting.md](docs/safety-reporting.md) — 通報・ブロック
 - [docs/cross-team-coordination.md](docs/cross-team-coordination.md) — フロント・DB 担当との調整事項
+- [docs/infra-setup.md](docs/infra-setup.md) — 自前インフラ（Supabase / SuperTokens / Vercel）の構築手順
 - [dbtodo.md](dbtodo.md) — Supabase 永続化の進捗
 - [AGENTS.md](AGENTS.md) — 開発ルール（PR 単位・OpenAPI 同期・レビュー）
 
