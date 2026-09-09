@@ -141,9 +141,25 @@ def test_weight_boundary_sends_heavy_loads_to_review(weight: str, expected: str)
 def test_late_night_boundary_sends_work_to_review(hour: str, expected: str) -> None:
     assessment = assess(
         "荷物の運び出しを手伝ってほしい",
-        scheduled_at=f"2026-09-10T{hour}:00+00:00",
+        scheduled_at=f"2026-09-10T{hour}:00+09:00",
     )
     assert assessment.level == expected
+
+
+@pytest.mark.parametrize(
+    ("scheduled_at", "expected"),
+    [
+        # 04:00Z は 13:00 JST。表記どおりに見ると深夜扱いになるが、日本時間では昼。
+        ("2026-09-10T04:00:00Z", "low"),
+        ("2026-09-10T13:00:00+00:00", "high"),  # 22:00 JST
+        ("2026-09-10T21:00:00+00:00", "low"),  # 06:00 JST（境界、深夜ではない）
+        ("2026-09-10T20:59:00+00:00", "high"),  # 05:59 JST
+        ("2026-09-10T12:59:00+00:00", "low"),  # 21:59 JST
+        ("2026-09-10T22:00:00", "high"),  # タイムゾーン無しは日本時間とみなす
+    ],
+)
+def test_late_night_is_judged_in_japan_time(scheduled_at: str, expected: str) -> None:
+    assert assess("荷物の運び出しを手伝ってほしい", scheduled_at=scheduled_at).level == expected
 
 
 def test_unparsable_schedule_does_not_escalate() -> None:
