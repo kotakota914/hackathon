@@ -49,7 +49,12 @@
 
 ## 管理者アカウントの作り方（本番）
 
-現時点では管理者を作る画面が無い。Supabase の SQL エディタで対象利用者の `role` を変える。
+おすすめ: Vercel（fitt0-api）の環境変数 `ADMIN_AUTH_SUBJECTS` に自分の SuperTokens ユーザーIDを入れて再デプロイする。
+次にログイン（またはページを開き直す）した時点で `role = admin` になる。複数人はカンマ区切り。
+
+ユーザーIDは SuperTokens ダッシュボード → Users → 該当メールの「User ID」。
+
+代わりに Supabase の SQL エディタで直接変えることもできる。
 
 ```sql
 update users set role = 'admin' where auth_subject = '<SuperTokens の user id>';

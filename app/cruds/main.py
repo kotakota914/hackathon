@@ -41,6 +41,9 @@ from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
 )
+from app.services.admin_bootstrap import (
+    promote_in_memory, promote_in_postgres, with_admin_bootstrap,
+)
 from app.repositories.stats import (
     MIN_CELL_SIZE, StatsRepository, area_label, category_label,
     configure_memory_stats_store, get_stats_repository, suppress,
@@ -613,9 +616,12 @@ configure_memory_stats_store(
     lambda: get_match_repository()._items,
 )
 if settings.request_repository == "postgres":
-    configure_user_lookup(resolve_authenticated_user)
+    # ADMIN_AUTH_SUBJECTS に載っている利用者はログイン時に admin にする。
+    configure_user_lookup(with_admin_bootstrap(resolve_authenticated_user, promote_in_postgres))
 else:
-    configure_user_lookup(lambda user_id: users_store.get(user_id))
+    configure_user_lookup(with_admin_bootstrap(
+        lambda user_id: users_store.get(user_id), promote_in_memory(lambda: users_store),
+    ))
 
 
 def create_user_profile(user_id: str) -> None:
