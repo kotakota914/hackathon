@@ -66,6 +66,7 @@ from .main import (
     PushUnsubscribeInput,
     VapidPublicKeyResponse,
     PublicProfileResponse,
+    ExpireRequestsResponse,
 )
 
 __all__ = [name for name in globals() if not name.startswith("_")]

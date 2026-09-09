@@ -131,6 +131,7 @@ cd tetote && npx tsc --noEmit && npm test
 | `REQUEST_REPOSITORY=postgres`, `DATABASE_URL` | Supabase への接続 |
 | `SUPERTOKENS_ENABLED=true`, `SUPERTOKENS_CONNECTION_URI`, `SUPERTOKENS_API_KEY` | 認証 |
 | `WEBSITE_DOMAIN`, `API_DOMAIN`, `AUTH_COOKIE_SAME_SITE` | フロントのオリジン（CORS）と Cookie 設定 |
+| `CRON_SECRET` | 定期処理（期限切れの確定）を呼ぶための合言葉。Vercel Cron が自動で付ける。未設定なら定期処理は無効 |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push（プッシュ通知）の鍵と連絡先。未設定なら通知機能は静かに無効 |
 | `ADMIN_AUTH_SUBJECTS` | 管理者にする SuperTokens ユーザーID（カンマ区切り）。ログイン時に `role=admin` へ。自治体ダッシュボードなどの管理者機能に必要 |
 | `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` | AI（未設定ならルールのみで動作） |
@@ -153,6 +154,7 @@ DB への migration 適用は `scripts/apply_migrations.py` を使う。
 - [docs/municipality-dashboard.md](docs/municipality-dashboard.md) — 自治体ダッシュボード（集計の方針と段階計画）
 - [docs/pwa.md](docs/pwa.md) — PWA 対応（ホーム画面に追加・オフラインの殻・確認方法）
 - [docs/push-notifications.md](docs/push-notifications.md) — プッシュ通知（鍵の作り方・何をいつ送るか・確認方法）
+- [docs/request-expiry.md](docs/request-expiry.md) — 古い依頼の自動期限切れ（期限の決め方・定期処理）
 - [docs/cross-team-coordination.md](docs/cross-team-coordination.md) — フロント・DB 担当との調整事項
 - [docs/infra-setup.md](docs/infra-setup.md) — 自前インフラ（Supabase / SuperTokens / Vercel）の構築手順
 - [dbtodo.md](dbtodo.md) — Supabase 永続化の進捗

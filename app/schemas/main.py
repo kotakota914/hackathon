@@ -181,6 +181,7 @@ class RequestResponse(ContractModel):
     warnings: list[str]
     createdAt: datetime
     updatedAt: datetime
+    expiresAt: datetime | None = Field(default=None, description="募集の期限（予定日時 + 24 時間）。過ぎると公開一覧に出なくなる。無ければnull")
 
 
 class ListOrigin(ContractModel):
@@ -656,4 +657,9 @@ class PublicProfileResponse(ContractModel):
     character: PublicProfileCharacter
     achievementText: str | None = Field(description="本人が公開を承認したAI実績文。無ければnull")
     achievementApprovedAt: datetime | None
+
+
+class ExpireRequestsResponse(ContractModel):
+    expiredRequests: int = Field(description="expired に変えた依頼の数")
+    closedApplications: int = Field(description="あわせて閉じた未処理の応募の数")
 

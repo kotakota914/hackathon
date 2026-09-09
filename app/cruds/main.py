@@ -95,7 +95,7 @@ from app.services import images
 from app.repositories.uploads import (
     MemoryUploadRepository, UploadRepository, get_upload_repository,
 )
-from app.services import character, request_structuring, safety
+from app.services import character, request_expiry, request_structuring, safety
 from app.services import verification_reviews as verification_review_service
 from app.services import verification_email
 if SUPERTOKENS_ENABLED:
@@ -108,7 +108,8 @@ from app.schemas import (
     ApplicationInput, ApplicationListResponse, ApplicationResponse,
     CharacterProgressResponse,
     BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, MunicipalityOverviewResponse,
-    PushSubscriptionInput, PushUnsubscribeInput, VapidPublicKeyResponse, PublicProfileResponse, CompletionInput, DisputeInput, ErrorResponse,
+    PushSubscriptionInput, PushUnsubscribeInput, VapidPublicKeyResponse, PublicProfileResponse,
+    ExpireRequestsResponse, CompletionInput, DisputeInput, ErrorResponse,
     LocationResolveInput, LocationResolveResponse, MatchResponse, MessageInput,
     MaskingConfirmationResponse, MessageListResponse, MessageResponse,
     ProfileResponse, ProfileUpdateInput,
@@ -178,6 +179,7 @@ ERROR_MESSAGES = {
     "ACCOUNT_HAS_ACTIVE_MATCH": "進行中の支援があるため退会できません。完了または取消をしてからもう一度お試しください",
     "PUSH_DISABLED": "この環境ではプッシュ通知を利用できません",
     "USER_NOT_FOUND": "利用者が見つかりません",
+    "JOB_DISABLED": "この環境では定期処理を利用できません",
     "INTERNAL_SERVER_ERROR": "サーバー内部でエラーが発生しました",
 }
 
@@ -1790,6 +1792,26 @@ def _split_minutes(count: int, total_minutes: int) -> list[int]:
         return []
     base, extra = divmod(max(0, total_minutes), count)
     return [base + (1 if i < extra else 0) for i in range(count)]
+
+
+@app.get("/jobs/expire-requests", response_model=ExpireRequestsResponse, tags=["Jobs"], summary="期限切れの依頼を確定する定期処理", description="Vercel Cron などから 1 日 1 回呼ぶ。Authorization: Bearer <CRON_SECRET> が必要で、CRON_SECRET 未設定の環境では 404。期限（予定日時 + 24 時間）を過ぎた published / matching の依頼を expired に変え、未処理の応募を cancelled にする。公開一覧は期限を過ぎた時点で自動的に隠れるため、この処理は状態の確定と後片付けが目的。", responses=api_errors(401, 404, 500))
+async def run_request_expiry(
+    authorization: str | None = Header(default=None),
+):
+    verdict = request_expiry.cron_secret_matches(authorization)
+    if verdict is None:
+        raise HTTPException(404, detail={"code": "JOB_DISABLED"})
+    if not verdict:
+        raise HTTPException(401, detail={"code": "AUTHENTICATION_REQUIRED"})
+    if settings.request_repository == "postgres":
+        result = await request_expiry.expire_requests_in_postgres()
+    else:
+        result = await request_expiry.expire_requests_in_memory()
+    logger.info("request expiry expired=%s closed=%s", result.expired_requests, result.closed_applications)
+    return {
+        "expiredRequests": result.expired_requests,
+        "closedApplications": result.closed_applications,
+    }
 
 
 @app.get("/me/badges", response_model=BadgeSummaryResponse, tags=["Me"], summary="バッジ用の集計を取得", description="認証済み本人について、自分の依頼に来て未選択の応募数、進行中のマッチ数、相手からの未読メッセージ数を返す。ブロック関係の相手は除外する。状態は持たず、その時点の事実だけを数える。", responses=api_errors(401, 500))

@@ -72,6 +72,7 @@ Vercel の Environment Variables と PowerShell の環境変数にだけ入れ�
    | `API_DOMAIN` | `https://fitt0-api.vercel.app` |
    | `WEBSITE_DOMAIN` | `https://fitt0-app.vercel.app` |
    | `AUTH_COOKIE_SAME_SITE` | `none` |
+   | `CRON_SECRET` | ランダム 32 文字（定期処理の合言葉。Vercel Cron が自動で付ける） |
    | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | プッシュ通知の鍵（docs/push-notifications.md の手順で生成。任意） |
    | `VAPID_SUBJECT` | `mailto:自分のメールアドレス`（任意） |
    | `ADMIN_AUTH_SUBJECTS` | 管理者にしたい自分の SuperTokens ユーザーID（任意。あとから追加してもよい） |
