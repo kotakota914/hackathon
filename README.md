@@ -150,6 +150,7 @@ DB への migration 適用は `scripts/apply_migrations.py` を使う。
 - [docs/safety-reporting.md](docs/safety-reporting.md) — 通報・ブロック
 - [docs/account-deletion.md](docs/account-deletion.md) — アカウント削除（退会）の方針と処理順
 - [docs/municipality-dashboard.md](docs/municipality-dashboard.md) — 自治体ダッシュボード（集計の方針と段階計画）
+- [docs/pwa.md](docs/pwa.md) — PWA 対応（ホーム画面に追加・オフラインの殻・確認方法）
 - [docs/cross-team-coordination.md](docs/cross-team-coordination.md) — フロント・DB 担当との調整事項
 - [docs/infra-setup.md](docs/infra-setup.md) — 自前インフラ（Supabase / SuperTokens / Vercel）の構築手順
 - [dbtodo.md](dbtodo.md) — Supabase 永続化の進捗
