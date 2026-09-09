@@ -114,3 +114,9 @@ OpenAPIには個別操作として現れない。管理画面、Realtime、実AI
 - 個人情報は含まない。人数が `minCellSize`（5）未満の区分は件数を `null` で伏せる。
 - 実装: `app/repositories/stats.py`（Memory / Postgres）、DB 関数 `app.municipality_totals()` / `app.municipality_breakdown()`（security definer、内部で `app.is_admin()` を再確認）。
 - 段階2（自治体ロール・地域絞り込み）の計画は [municipality-dashboard.md](municipality-dashboard.md)。
+
+### レビュー（完了後の評価）
+
+- `POST /matches/{match_id}/reviews`（completed なマッチの当事者、相手へ 1 件）。Memory / Postgres の Repository（`app/repositories/reviews.py`）に保存する。以前はメモリ上の辞書だけで、本番では保存されなかった。
+- 公開プロフィール `GET /users/{user_id}/public-profile` の `reviewSummary` に件数と「良かった点」の件数を出す。本文と評価者は出さない。
+

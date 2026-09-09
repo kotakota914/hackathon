@@ -67,6 +67,7 @@ from .main import (
     VapidPublicKeyResponse,
     PublicProfileResponse,
     ExpireRequestsResponse,
+    ReviewSummaryResponse,
 )
 
 __all__ = [name for name in globals() if not name.startswith("_")]

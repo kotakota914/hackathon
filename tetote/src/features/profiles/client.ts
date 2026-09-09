@@ -15,7 +15,24 @@ export type PublicProfile = {
   character: { stage: number; maxStage: number; characterId: string; helpCount: number };
   achievementText: string | null;
   achievementApprovedAt: string | null;
+  reviewSummary: ReviewSummary;
 };
+
+/** 受け取った評価の要約。本文や評価者は含まれない。 */
+export type ReviewSummary = {
+  count: number;
+  onTime: number;
+  polite: number;
+  safetyAware: number;
+  communicative: number;
+};
+
+export const REVIEW_TRAIT_LABELS: { key: keyof Omit<ReviewSummary, "count">; label: string }[] = [
+  { key: "onTime", label: "時間どおり" },
+  { key: "polite", label: "丁寧" },
+  { key: "safetyAware", label: "安全に配慮" },
+  { key: "communicative", label: "連絡がこまめ" },
+];
 
 export function getPublicProfile(userId: string, client: ApiClient = apiClient): Promise<PublicProfile> {
   return client.get<PublicProfile>(`/users/${encodeURIComponent(userId)}/public-profile`);

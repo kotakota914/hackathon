@@ -647,6 +647,14 @@ class PublicProfileCharacter(ContractModel):
     helpCount: int
 
 
+class ReviewSummaryResponse(ContractModel):
+    count: int = Field(description="受け取った評価の件数")
+    onTime: int = Field(description="「時間どおり」と評価された件数")
+    polite: int = Field(description="「丁寧」と評価された件数")
+    safetyAware: int = Field(description="「安全に配慮」と評価された件数")
+    communicative: int = Field(description="「連絡がこまめ」と評価された件数")
+
+
 class PublicProfileResponse(ContractModel):
     userId: str
     displayName: str
@@ -657,6 +665,7 @@ class PublicProfileResponse(ContractModel):
     character: PublicProfileCharacter
     achievementText: str | None = Field(description="本人が公開を承認したAI実績文。無ければnull")
     achievementApprovedAt: datetime | None
+    reviewSummary: ReviewSummaryResponse = Field(description="受け取った評価の要約。本文や評価者は含まない")
 
 
 class ExpireRequestsResponse(ContractModel):
