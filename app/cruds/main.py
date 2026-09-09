@@ -187,6 +187,7 @@ ERROR_MESSAGES = {
     "PUSH_DISABLED": "この環境ではプッシュ通知を利用できません",
     "USER_NOT_FOUND": "利用者が見つかりません",
     "JOB_DISABLED": "この環境では定期処理を利用できません",
+    "FEATURE_UNAVAILABLE": "この機能は準備中です",
     "INTERNAL_SERVER_ERROR": "サーバー内部でエラーが発生しました",
 }
 
@@ -348,7 +349,8 @@ def resolve_location(
         if selected_area_code not in REGIONS:
             raise HTTPException(422, detail={"code": "REGION_SELECTION_REQUIRED"})
         return selected_area_code, "selected_region"
-    registered = users_store.get(current_user.user_id, {}).get("areaCode")
+    # 認証時に解決した登録地域（本番は Postgres）を優先し、無ければ開発用の users_store を見る。
+    registered = current_user.area_code or users_store.get(current_user.user_id, {}).get("areaCode")
     if registered in REGIONS:
         return registered, "registered_region"
     # 登録地域が無い利用者（オンボーディングは都道府県名しか保存しない）を
@@ -916,7 +918,10 @@ async def set_profile_image(
     image = await repository.promote_to_image(body.uploadId, current_user.user_id)
     if image is None:
         raise HTTPException(409, detail={"code": "UPLOAD_CONTENT_MISSING"})
-    profile = users_store[current_user.user_id]
+    profile = users_store.get(current_user.user_id)
+    if profile is None:
+        # 本番はプロフィールが Postgres にあり、画像の保存先（Supabase Storage）も未整備。
+        raise HTTPException(503, detail={"code": "FEATURE_UNAVAILABLE"})
     # 新しい画像を確定できてから、古い画像を消す。差し替え失敗で無画像にしない。
     previous_image_id = profile.get("imageId")
     profile["imageId"] = image["id"]
@@ -936,7 +941,9 @@ async def delete_profile_image(
     current_user: CurrentUser = Depends(get_current_user),
     repository: UploadRepository = Depends(upload_repository_dependency),
 ):
-    profile = users_store[current_user.user_id]
+    profile = users_store.get(current_user.user_id)
+    if profile is None:
+        raise HTTPException(503, detail={"code": "FEATURE_UNAVAILABLE"})
     image_id = profile.get("imageId")
     if not image_id:
         raise HTTPException(404, detail={"code": "PROFILE_IMAGE_NOT_FOUND"})
