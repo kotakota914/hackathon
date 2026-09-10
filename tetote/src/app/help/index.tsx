@@ -39,6 +39,20 @@ export default function HelpHomeScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="お知らせ"
+            onPress={() => router.push("/help/notifications")}
+            style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="notifications" size={28} color="#F2A329" />
+            {badgeLabel(badges.unreadNotifications) ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{badgeLabel(badges.unreadNotifications)}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+
+          <Pressable
             onPress={() => router.replace("/helper")}
             style={({ pressed }) => [
               styles.switchButton,
@@ -273,6 +287,28 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
+  bellButton: {
+    position: "relative",
+    padding: 6,
+    justifyContent: "center",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: "#B3261E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "900",
+  },
   pressed: {
     opacity: 0.75,
     transform: [{ scale: 0.98 }],

@@ -189,6 +189,7 @@ export default function HelperLayout() {
     href: null,
   }}
 />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

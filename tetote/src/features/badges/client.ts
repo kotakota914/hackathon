@@ -12,12 +12,15 @@ export type BadgeSummary = {
   activeMatches: number;
   /** 相手から届いて、まだ開いていないメッセージの数 */
   unreadMessages: number;
+  /** 未読のお知らせの数 */
+  unreadNotifications: number;
 };
 
 export const EMPTY_BADGES: BadgeSummary = {
   pendingApplicants: 0,
   activeMatches: 0,
   unreadMessages: 0,
+  unreadNotifications: 0,
 };
 
 /** 取り直す間隔。チャットの3秒より緩く、電池と通信量を抑える。 */
