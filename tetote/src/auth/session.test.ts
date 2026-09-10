@@ -32,6 +32,8 @@ function fakeClient(overrides: Partial<AuthClient> = {}): AuthClient {
     signUp: vi.fn().mockResolvedValue({ ok: true }),
     signIn: vi.fn().mockResolvedValue({ ok: true }),
     signOut: vi.fn().mockResolvedValue(undefined),
+    requestPasswordReset: vi.fn().mockResolvedValue({ ok: true }),
+    submitNewPassword: vi.fn().mockResolvedValue({ ok: true }),
     getProfile: vi.fn().mockResolvedValue(profile),
     updateProfile: vi.fn().mockResolvedValue(profile),
     ...overrides,

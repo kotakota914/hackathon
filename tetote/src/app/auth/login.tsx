@@ -227,6 +227,15 @@ export default function LoginScreen() {
                 : "ログイン"}
             </Text>
           </Pressable>
+
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => router.push("/auth/forgot-password" as never)}
+            disabled={isSubmitting}
+            style={styles.forgotLink}
+          >
+            <Text style={styles.forgotLinkText}>パスワードをお忘れですか？</Text>
+          </Pressable>
         </View>
 
         <View style={styles.signupRow}>
@@ -395,6 +404,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  forgotLink: {
+    alignSelf: "center",
+    paddingVertical: 10,
+  },
+  forgotLinkText: {
+    color: "#245C2D",
+    fontSize: 14,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   signupRow: {
     marginTop: "auto",
     flexDirection: "row",
