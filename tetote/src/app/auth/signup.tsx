@@ -236,6 +236,14 @@ export default function SignupScreen() {
                 : "新規登録"}
             </Text>
           </Pressable>
+
+          <Text style={styles.consentText}>
+            登録すると、
+            <Text style={styles.consentLink} onPress={() => router.push("/legal/terms")}>利用規約</Text>
+            と
+            <Text style={styles.consentLink} onPress={() => router.push("/legal/privacy")}>プライバシーポリシー</Text>
+            に同意したことになります。
+          </Text>
         </View>
 
         <View style={styles.loginRow}>
@@ -311,6 +319,18 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
+  consentText: {
+    color: "#555555",
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    marginTop: 12,
+  },
+  consentLink: {
+    color: "#245C2D",
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   screen: {
     flex: 1,
     backgroundColor: "#FFF5E9",

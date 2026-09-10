@@ -356,19 +356,19 @@ export default function HelperSettingsScreen() {
 
             <SettingButton
               label="ヘルプ"
-              onPress={() => {}}
+              onPress={() => router.push("/legal/help")}
               scale={scale}
             />
 
             <SettingButton
               label="利用規約"
-              onPress={() => {}}
+              onPress={() => router.push("/legal/terms")}
               scale={scale}
             />
 
             <SettingButton
               label="プライバシーポリシー"
-              onPress={() => {}}
+              onPress={() => router.push("/legal/privacy")}
               scale={scale}
               last
             />

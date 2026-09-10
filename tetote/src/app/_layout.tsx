@@ -14,7 +14,8 @@ function AuthenticatedStack() {
   const pathname = usePathname();
   const router = useRouter();
   // 練習モード（/tutorial）はサーバーに触れないので、ログイン前でも開ける。
-  const isAuthRoute = pathname.startsWith("/auth") || pathname.startsWith("/tutorial");
+  const isAuthRoute =
+    pathname.startsWith("/auth") || pathname.startsWith("/tutorial") || pathname.startsWith("/legal");
   const needsAuthentication = status === "unauthenticated";
 
   useEffect(() => {
