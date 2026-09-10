@@ -23,7 +23,7 @@ describe("バッジ集計", () => {
   });
 
   it("初期値はすべて0で、取り直し間隔はチャットより緩い", () => {
-    expect(EMPTY_BADGES).toEqual({ pendingApplicants: 0, activeMatches: 0, unreadMessages: 0 });
+    expect(EMPTY_BADGES).toEqual({ pendingApplicants: 0, activeMatches: 0, unreadMessages: 0, unreadNotifications: 0 });
     expect(BADGE_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(10_000);
   });
 

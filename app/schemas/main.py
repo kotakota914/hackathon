@@ -422,6 +422,7 @@ class BadgeSummaryResponse(ContractModel):
     pendingApplicants: int = Field(ge=0, description="自分の依頼に来て、まだ選んでいない応募の数")
     activeMatches: int = Field(ge=0, description="進行中のマッチの数（matched / in_progress / completion_pending）")
     unreadMessages: int = Field(ge=0, description="相手から届いて未読のメッセージの数")
+    unreadNotifications: int = Field(default=0, ge=0, description="未読のお知らせの数")
 
 
 class CompletionInput(ContractModel):
@@ -671,4 +672,27 @@ class PublicProfileResponse(ContractModel):
 class ExpireRequestsResponse(ContractModel):
     expiredRequests: int = Field(description="expired に変えた依頼の数")
     closedApplications: int = Field(description="あわせて閉じた未処理の応募の数")
+
+
+class NotificationItem(ContractModel):
+    id: str
+    kind: str = Field(description="application / selected / message など")
+    title: str
+    body: str = Field(description="個人情報を含まない短い説明")
+    url: str = Field(description="押したときに開く画面のパス")
+    createdAt: datetime
+    readAt: datetime | None
+
+
+class NotificationListResponse(ContractModel):
+    items: list[NotificationItem] = Field(description="新しい順")
+    unreadCount: int = Field(ge=0)
+
+
+class NotificationsReadInput(ContractModel):
+    ids: list[str] | None = Field(default=None, description="既読にするお知らせのID。省略で全部")
+
+
+class NotificationsReadResponse(ContractModel):
+    marked: int = Field(ge=0, description="今回既読にした件数")
 

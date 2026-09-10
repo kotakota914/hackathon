@@ -376,6 +376,13 @@
             "minimum": 0.0,
             "title": "Unreadmessages",
             "type": "integer"
+          },
+          "unreadNotifications": {
+            "default": 0,
+            "description": "未読のお知らせの数",
+            "minimum": 0.0,
+            "title": "Unreadnotifications",
+            "type": "integer"
           }
         },
         "required": [
@@ -1354,6 +1361,120 @@
           "avgEstimatedMinutes"
         ],
         "title": "MunicipalityTotals",
+        "type": "object"
+      },
+      "NotificationItem": {
+        "properties": {
+          "body": {
+            "description": "個人情報を含まない短い説明",
+            "title": "Body",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "application / selected / message など",
+            "title": "Kind",
+            "type": "string"
+          },
+          "readAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readat"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "description": "押したときに開く画面のパス",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "body",
+          "url",
+          "createdAt",
+          "readAt"
+        ],
+        "title": "NotificationItem",
+        "type": "object"
+      },
+      "NotificationListResponse": {
+        "properties": {
+          "items": {
+            "description": "新しい順",
+            "items": {
+              "$ref": "#/components/schemas/NotificationItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "unreadCount": {
+            "minimum": 0.0,
+            "title": "Unreadcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "unreadCount"
+        ],
+        "title": "NotificationListResponse",
+        "type": "object"
+      },
+      "NotificationsReadInput": {
+        "properties": {
+          "ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "既読にするお知らせのID。省略で全部",
+            "title": "Ids"
+          }
+        },
+        "title": "NotificationsReadInput",
+        "type": "object"
+      },
+      "NotificationsReadResponse": {
+        "properties": {
+          "marked": {
+            "description": "今回既読にした件数",
+            "minimum": 0.0,
+            "title": "Marked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "marked"
+        ],
+        "title": "NotificationsReadResponse",
         "type": "object"
       },
       "OwnedRequestListResponse": {
@@ -5926,6 +6047,160 @@
           }
         ],
         "summary": "バッジ用の集計を取得",
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/notifications": {
+      "get": {
+        "description": "応募が届いた・選ばれた・メッセージが届いた、などの出来事を新しい順に返す（最大50件）。本文に相手の名前やメッセージ内容は含まない。プッシュ通知が届かない環境でも、開いたときに何があったか分かるようにする。",
+        "operationId": "list_my_notifications_me_notifications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "自分のお知らせ一覧を取得",
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/notifications/read": {
+      "post": {
+        "description": "ids を省略すると自分の未読すべてを既読にする。二重実行しても安全。",
+        "operationId": "mark_my_notifications_read_me_notifications_read_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationsReadInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsReadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "details": {},
+                    "message": "入力内容を確認してください",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "入力内容を確認してください"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "お知らせを既読にする",
         "tags": [
           "Me"
         ]

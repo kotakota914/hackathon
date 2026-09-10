@@ -126,3 +126,9 @@ OpenAPIには個別操作として現れない。管理画面、Realtime、実AI
 - 1 利用者 1 件。生成し直すと承認と公開範囲はやり直し。`members` は DB では `unlisted`。`public` は本人の承認（`approved=true`）が必須。
 - DB 関数: `app.upsert_own_achievement()`、`app.set_own_achievement_visibility()`（security definer、本人のみ）。
 
+### お知らせ（アプリ内の通知履歴）
+
+- `GET /me/notifications`（新しい順、最大 50 件、未読数つき）、`POST /me/notifications/read`（ids 省略で全部既読）。`/me/badges` に `unreadNotifications`。
+- 応募が届いた／選ばれた／メッセージが届いた、の 3 つの出来事で、相手に 1 件残してからプッシュ通知を送る（`app/services/notifications.py`）。本文に相手の名前やメッセージ内容は入れない。
+- Postgres: `notifications` 表（RLS で本人のみ select）、`app.add_notification()`、`app.mark_own_notifications_read()`。
+

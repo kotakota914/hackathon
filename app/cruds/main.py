@@ -41,6 +41,10 @@ from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
 )
+from app.repositories.notifications import (
+    NotificationRepository, get_notification_repository,
+)
+from app.services import notifications as notification_service
 from app.repositories.achievements import (
     AchievementApprovalRequiredError, AchievementNotFoundError, AchievementRepository,
     get_achievement_repository,
@@ -116,6 +120,7 @@ from app.schemas import (
     CharacterProgressResponse,
     BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, MunicipalityOverviewResponse,
     PushSubscriptionInput, PushUnsubscribeInput, VapidPublicKeyResponse, PublicProfileResponse,
+    NotificationListResponse, NotificationsReadInput, NotificationsReadResponse,
     ExpireRequestsResponse, CompletionInput, DisputeInput, ErrorResponse,
     LocationResolveInput, LocationResolveResponse, MatchResponse, MessageInput,
     MaskingConfirmationResponse, MessageListResponse, MessageResponse,
@@ -763,6 +768,7 @@ async def reset_mock(
     ),
     match_repository: MatchRepository = Depends(match_repository_dependency),
     message_repository: MessageRepository = Depends(message_repository_dependency),
+    notification_repository: NotificationRepository = Depends(get_notification_repository),
     user_settings_repository: UserSettingsRepository = Depends(
         user_settings_repository_dependency
     ),
@@ -784,6 +790,10 @@ async def reset_mock(
     await user_settings_repository.reset()
     await request_dismissal_repository.reset()
     await saved_request_repository.reset()
+    reset_sync = getattr(notification_repository, "reset_sync", None)
+    if callable(reset_sync):
+        reset_sync()
+
     return {"reset": True}
 
 
@@ -1587,7 +1597,7 @@ async def create_application(
     )
     # 依頼者へ「応募が届きました」。本文に応募者の情報は入れない。
     background.add_task(
-        push_service.notify_quietly, request_item["requesterId"],
+        notification_service.deliver, request_item["requesterId"],
         push_service.application_received("/help/requests"),
     )
     return application
@@ -1651,7 +1661,7 @@ async def select_application(
         await match_repository.create(current_user, match)
     # 支援者へ「選ばれました」。
     background.add_task(
-        push_service.notify_quietly, application["helperId"],
+        notification_service.deliver, application["helperId"],
         push_service.helper_selected("/helper/chats"),
     )
     return match
@@ -1831,6 +1841,24 @@ async def run_request_expiry(
     }
 
 
+@app.get("/me/notifications", response_model=NotificationListResponse, tags=["Me"], summary="自分のお知らせ一覧を取得", description="応募が届いた・選ばれた・メッセージが届いた、などの出来事を新しい順に返す（最大50件）。本文に相手の名前やメッセージ内容は含まない。プッシュ通知が届かない環境でも、開いたときに何があったか分かるようにする。", responses=api_errors(401, 500))
+async def list_my_notifications(
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: NotificationRepository = Depends(get_notification_repository),
+):
+    items = await repository.list_for(current_user)
+    return {"items": items, "unreadCount": await repository.unread_count(current_user)}
+
+
+@app.post("/me/notifications/read", response_model=NotificationsReadResponse, tags=["Me"], summary="お知らせを既読にする", description="ids を省略すると自分の未読すべてを既読にする。二重実行しても安全。", responses=api_errors(401, 422, 500))
+async def mark_my_notifications_read(
+    body: NotificationsReadInput,
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: NotificationRepository = Depends(get_notification_repository),
+):
+    return {"marked": await repository.mark_read(current_user, body.ids)}
+
+
 @app.get("/me/badges", response_model=BadgeSummaryResponse, tags=["Me"], summary="バッジ用の集計を取得", description="認証済み本人について、自分の依頼に来て未選択の応募数、進行中のマッチ数、相手からの未読メッセージ数を返す。ブロック関係の相手は除外する。状態は持たず、その時点の事実だけを数える。", responses=api_errors(401, 500))
 async def get_my_badges(
     current_user: CurrentUser = Depends(get_current_user),
@@ -1874,6 +1902,7 @@ async def get_my_badges(
         "pendingApplicants": pending_applicants,
         "activeMatches": active_matches,
         "unreadMessages": unread_messages,
+        "unreadNotifications": await get_notification_repository().unread_count(current_user),
     }
 
 
@@ -2019,7 +2048,7 @@ async def create_message(
         recipient = match_record["requesterId"] if recipient_is_requester else match_record["helperId"]
         chat_path = "/help/chat" if recipient_is_requester else "/helper/chat"
         background.add_task(
-            push_service.notify_quietly, recipient,
+            notification_service.deliver, recipient,
             push_service.message_received(f"{chat_path}?matchId={match_id}"),
         )
     return item
@@ -2228,7 +2257,11 @@ async def create_university_email_challenge(
         if "RATE_LIMITED" in str(exc):
             raise HTTPException(429, detail={"code": "VERIFICATION_CODE_RATE_LIMITED"}) from exc
         raise
-    await verification_email.send_code(email, code)
+    try:
+        await verification_email.send_code(email, code)
+    except RuntimeError as exc:
+        # 送信サービス（Cloudflare Email）が未設定。本番では 500 ではなく「準備中」を返す。
+        raise HTTPException(503, detail={"code": "FEATURE_UNAVAILABLE"}) from exc
     return {"challengeId": challenge_id, "expiresInSeconds": 600}
 
 

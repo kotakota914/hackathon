@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { badgeLabel } from "../../features/badges/client";
+import { useBadges } from "../../features/badges/useBadges";
 import { useRouter } from "expo-router";
 import { useRequests } from "../../context/RequestsContext";
 import { useFontSize } from "../../context/FontSizeContext";
@@ -30,6 +32,7 @@ const tagOptions = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const badges = useBadges();
 
   const { scale } = useFontSize();
 const styles = createStyles(scale);
@@ -434,6 +437,20 @@ const swipeLeft =
               />
             </Pressable>
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="お知らせ"
+            onPress={() => router.push("/helper/notifications")}
+            style={({ pressed }) => [styles.bellButton, pressed && styles.modeSwitchPressed]}
+          >
+            <Ionicons name="notifications" size={28} color="#245C2D" />
+            {badgeLabel(badges.unreadNotifications) ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{badgeLabel(badges.unreadNotifications)}</Text>
+              </View>
+            ) : null}
+          </Pressable>
 
           <Pressable
   onPress={() => router.replace("/help")}
@@ -924,6 +941,29 @@ const swipeLeft =
 
 const createStyles = (scale: number) =>
   StyleSheet.create({
+  bellButton: {
+    position: "relative",
+    alignSelf: "flex-end",
+    padding: 6,
+    marginBottom: 6,
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: "#B3261E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "900",
+  },
     screen: {
       flex: 1,
       backgroundColor: "#FFF5E9",

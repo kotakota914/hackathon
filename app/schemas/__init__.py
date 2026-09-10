@@ -68,6 +68,10 @@ from .main import (
     PublicProfileResponse,
     ExpireRequestsResponse,
     ReviewSummaryResponse,
+    NotificationItem,
+    NotificationListResponse,
+    NotificationsReadInput,
+    NotificationsReadResponse,
 )
 
 __all__ = [name for name in globals() if not name.startswith("_")]

@@ -6,7 +6,7 @@ import base64
 import binascii
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import re
 from typing import Any, Protocol, Sequence
@@ -299,7 +299,13 @@ class MemoryRequestRepository:
         return [_public_record(item) for item in items[:limit]]
 
     async def create(self, actor: CurrentUser, values: dict[str, Any]) -> RequestRecord:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        # 同じ時刻に 2 件作ると「新しい順」が不安定になるため、作成時刻は必ず前より後にする。
+        moment = datetime.now(timezone.utc)
+        last = getattr(self, "_last_created_at", None)
+        if last is not None and moment <= last:
+            moment = last + timedelta(microseconds=1)
+        self._last_created_at = moment
+        now = moment.isoformat().replace("+00:00", "Z")
         item = {
             "id": str(uuid.uuid4()), "requesterId": actor.user_id,
             **deepcopy(values), "areaLabel": "大学周辺・約1km", "distanceKm": 1.0,

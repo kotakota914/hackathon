@@ -154,6 +154,7 @@ export default function HelpLayout() {
       />
       <Tabs.Screen name="requests" options={{ href: null }} />
       <Tabs.Screen name="report" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="verification" options={{ href: null }} />
     </Tabs>
   );

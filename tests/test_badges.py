@@ -101,7 +101,7 @@ def apply_as(user: CurrentUser, request_id: str) -> dict:
 def test_everything_is_zero_for_a_quiet_user() -> None:
     # 種データには応募が2件（app_55, app_56）あるので、依頼者 usr_101 には応募待ちが見える。
     act_as(OTHER_HELPER)
-    assert badges() == {"pendingApplicants": 0, "activeMatches": 0, "unreadMessages": 0}
+    assert badges() == {"pendingApplicants": 0, "activeMatches": 0, "unreadMessages": 0, "unreadNotifications": 0}
 
 
 def test_requester_sees_pending_applicants_on_own_requests() -> None:
