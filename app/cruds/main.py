@@ -41,6 +41,9 @@ from app.repositories.structure_audits import structure_audit_repository
 from app.repositories.request_dismissals import (
     RequestDismissalRepository, get_request_dismissal_repository,
 )
+from app.repositories.moderation import (
+    ModerationError, ModerationRepository, get_moderation_repository,
+)
 from app.repositories.notifications import (
     NotificationRepository, get_notification_repository,
 )
@@ -121,6 +124,7 @@ from app.schemas import (
     BlockInput, BlockResponse, ChatListResponse, BadgeSummaryResponse, MunicipalityOverviewResponse,
     PushSubscriptionInput, PushUnsubscribeInput, VapidPublicKeyResponse, PublicProfileResponse,
     NotificationListResponse, NotificationsReadInput, NotificationsReadResponse,
+    ReportListResponse, ReportResolveInput, UserSuspendInput, UserSuspendResponse,
     ExpireRequestsResponse, CompletionInput, DisputeInput, ErrorResponse,
     LocationResolveInput, LocationResolveResponse, MatchResponse, MessageInput,
     MaskingConfirmationResponse, MessageListResponse, MessageResponse,
@@ -193,6 +197,7 @@ ERROR_MESSAGES = {
     "USER_NOT_FOUND": "利用者が見つかりません",
     "JOB_DISABLED": "この環境では定期処理を利用できません",
     "FEATURE_UNAVAILABLE": "この機能は準備中です",
+    "REPORT_NOT_FOUND": "通報が見つかりません",
     "INTERNAL_SERVER_ERROR": "サーバー内部でエラーが発生しました",
 }
 
@@ -1684,6 +1689,53 @@ async def delete_account(
     # アプリ側の匿名化が終わってから認証側を消す。逆順だと失敗時に本人が再試行できない。
     await delete_auth_user(current_user.user_id)
     return None
+
+
+def require_admin(user: CurrentUser) -> None:
+    if user.role != "admin":
+        raise HTTPException(403, detail={"code": "ROLE_FORBIDDEN"})
+
+
+@app.get("/admin/reports", response_model=ReportListResponse, tags=["Admin"], summary="通報の一覧（管理者）", description="管理者だけが取得できる。status で open / investigating / resolved / rejected に絞れる（省略で全部）。新しい順、最大100件。", responses=api_errors(401, 403, 422, 500))
+async def list_reports_for_admin(
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: ModerationRepository = Depends(get_moderation_repository),
+    status: str | None = Query(default=None, pattern="^(open|investigating|resolved|rejected)$"),
+    limit: int = Query(default=100, ge=1, le=200),
+):
+    require_admin(current_user)
+    return {"items": await repository.list_reports(current_user, status=status, limit=limit)}
+
+
+@app.post("/admin/reports/{report_id}/resolve", response_model=ReportResponse, tags=["Admin"], summary="通報を対応済み・却下・確認中にする（管理者）", description="管理者だけが実行できる。resolved / rejected にすると対応者と日時が記録される。", responses=api_errors(401, 403, 404, 422, 500))
+async def resolve_report_for_admin(
+    report_id: str,
+    body: ReportResolveInput,
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: ModerationRepository = Depends(get_moderation_repository),
+):
+    require_admin(current_user)
+    try:
+        return await repository.resolve_report(current_user, report_id, body.status)
+    except ModerationError as exc:
+        raise HTTPException(404 if exc.code == "REPORT_NOT_FOUND" else 403, detail={"code": exc.code}) from exc
+
+
+@app.post("/admin/users/{user_id}/suspend", response_model=UserSuspendResponse, tags=["Admin"], summary="利用者を利用停止・解除する（管理者）", description="管理者だけが実行できる。停止中の利用者はログインしても操作できない（USER_SUSPENDED）。退会済みと管理者は対象にできない。", responses=api_errors(401, 403, 404, 422, 500))
+async def suspend_user_for_admin(
+    user_id: str,
+    body: UserSuspendInput,
+    current_user: CurrentUser = Depends(get_current_user),
+    repository: ModerationRepository = Depends(get_moderation_repository),
+):
+    require_admin(current_user)
+    if user_id == current_user.user_id:
+        raise HTTPException(422, detail={"code": "VALIDATION_ERROR"})
+    try:
+        status = await repository.set_user_suspended(current_user, user_id, body.suspended)
+    except ModerationError as exc:
+        raise HTTPException(404 if exc.code == "USER_NOT_FOUND" else 403, detail={"code": exc.code}) from exc
+    return {"userId": user_id, "status": status}
 
 
 @app.get("/admin/municipality-overview", response_model=MunicipalityOverviewResponse, tags=["Admin"], summary="自治体ダッシュボード用の集計を取得", description="管理者だけが取得できる。指定期間（既定は直近90日）について、依頼・マッチ・完了率などの集計を、地域別・カテゴリ別の内訳とともに返す。氏名・本文・座標などの個人情報は含まない。人数が minCellSize 未満の区分は個人特定を避けるため件数を伏せる（null）。fromDate/toDate は ISO 8601。段階2で自治体ロールを追加する際は地域で絞り込む。", responses=api_errors(401, 403, 422, 500))

@@ -132,3 +132,9 @@ OpenAPIには個別操作として現れない。管理画面、Realtime、実AI
 - 応募が届いた／選ばれた／メッセージが届いた、の 3 つの出来事で、相手に 1 件残してからプッシュ通知を送る（`app/services/notifications.py`）。本文に相手の名前やメッセージ内容は入れない。
 - Postgres: `notifications` 表（RLS で本人のみ select）、`app.add_notification()`、`app.mark_own_notifications_read()`。
 
+### 通報の確認（管理者）
+
+- `GET /admin/reports?status=`、`POST /admin/reports/{id}/resolve`（resolved / rejected / investigating）、`POST /admin/users/{id}/suspend`（利用停止・解除）。すべて `role = admin` のみ。
+- 停止中の利用者は認証で `USER_SUSPENDED`（403）になり、何もできない。退会済みと管理者は停止できない。
+- Postgres: `app.resolve_report()`、`app.set_user_suspended()`（security definer、内部で `app.is_admin()` を再確認、audit_logs に記録）。
+

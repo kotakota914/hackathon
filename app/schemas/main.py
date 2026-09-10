@@ -564,9 +564,10 @@ class ReportResponse(ContractModel):
     targetId: str
     reason: str
     description: str
-    severity: Literal["medium", "high"]
-    status: Literal["open", "resolved"]
+    severity: Literal["low", "medium", "high", "critical"]
+    status: Literal["open", "investigating", "resolved", "rejected"]
     createdAt: datetime
+    resolvedAt: datetime | None = Field(default=None, description="対応済み・却下にした日時")
 
 
 class BlockInput(ContractModel):
@@ -695,4 +696,21 @@ class NotificationsReadInput(ContractModel):
 
 class NotificationsReadResponse(ContractModel):
     marked: int = Field(ge=0, description="今回既読にした件数")
+
+
+class ReportListResponse(ContractModel):
+    items: list[ReportResponse] = Field(description="新しい順")
+
+
+class ReportResolveInput(ContractModel):
+    status: Literal["resolved", "rejected", "investigating"] = Field(description="resolved=対応済み、rejected=問題なしとして却下、investigating=確認中")
+
+
+class UserSuspendInput(ContractModel):
+    suspended: bool = Field(description="true で利用停止、false で解除")
+
+
+class UserSuspendResponse(ContractModel):
+    userId: str
+    status: Literal["active", "suspended"]
 

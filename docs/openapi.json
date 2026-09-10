@@ -2248,6 +2248,42 @@
         "title": "ReportInput",
         "type": "object"
       },
+      "ReportListResponse": {
+        "properties": {
+          "items": {
+            "description": "新しい順",
+            "items": {
+              "$ref": "#/components/schemas/ReportResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ReportListResponse",
+        "type": "object"
+      },
+      "ReportResolveInput": {
+        "properties": {
+          "status": {
+            "description": "resolved=対応済み、rejected=問題なしとして却下、investigating=確認中",
+            "enum": [
+              "resolved",
+              "rejected",
+              "investigating"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ReportResolveInput",
+        "type": "object"
+      },
       "ReportResponse": {
         "properties": {
           "createdAt": {
@@ -2271,10 +2307,25 @@
             "title": "Reporterid",
             "type": "string"
           },
+          "resolvedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "対応済み・却下にした日時",
+            "title": "Resolvedat"
+          },
           "severity": {
             "enum": [
+              "low",
               "medium",
-              "high"
+              "high",
+              "critical"
             ],
             "title": "Severity",
             "type": "string"
@@ -2282,7 +2333,9 @@
           "status": {
             "enum": [
               "open",
-              "resolved"
+              "investigating",
+              "resolved",
+              "rejected"
             ],
             "title": "Status",
             "type": "string"
@@ -3500,6 +3553,42 @@
         "title": "UserSettingsUpdateInput",
         "type": "object"
       },
+      "UserSuspendInput": {
+        "properties": {
+          "suspended": {
+            "description": "true で利用停止、false で解除",
+            "title": "Suspended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "suspended"
+        ],
+        "title": "UserSuspendInput",
+        "type": "object"
+      },
+      "UserSuspendResponse": {
+        "properties": {
+          "status": {
+            "enum": [
+              "active",
+              "suspended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "userId": {
+            "title": "Userid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "status"
+        ],
+        "title": "UserSuspendResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -4458,6 +4547,412 @@
           }
         ],
         "summary": "自治体ダッシュボード用の集計を取得",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/reports": {
+      "get": {
+        "description": "管理者だけが取得できる。status で open / investigating / resolved / rejected に絞れる（省略で全部）。新しい順、最大100件。",
+        "operationId": "list_reports_for_admin_admin_reports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(open|investigating|resolved|rejected)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "ROLE_FORBIDDEN",
+                    "details": {},
+                    "message": "この操作を行う権限がありません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "この操作を行う権限がありません"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "details": {},
+                    "message": "入力内容を確認してください",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "入力内容を確認してください"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "通報の一覧（管理者）",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/reports/{report_id}/resolve": {
+      "post": {
+        "description": "管理者だけが実行できる。resolved / rejected にすると対応者と日時が記録される。",
+        "operationId": "resolve_report_for_admin_admin_reports__report_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "title": "Report Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportResolveInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "ROLE_FORBIDDEN",
+                    "details": {},
+                    "message": "この操作を行う権限がありません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "この操作を行う権限がありません"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "REQUEST_NOT_FOUND",
+                    "details": {},
+                    "message": "対象が見つかりません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "対象が見つかりません"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "details": {},
+                    "message": "入力内容を確認してください",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "入力内容を確認してください"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "通報を対応済み・却下・確認中にする（管理者）",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/users/{user_id}/suspend": {
+      "post": {
+        "description": "管理者だけが実行できる。停止中の利用者はログインしても操作できない（USER_SUSPENDED）。退会済みと管理者は対象にできない。",
+        "operationId": "suspend_user_for_admin_admin_users__user_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserSuspendInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSuspendResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "AUTHENTICATION_REQUIRED",
+                    "details": {},
+                    "message": "認証が必要です",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "認証が必要です"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "ROLE_FORBIDDEN",
+                    "details": {},
+                    "message": "この操作を行う権限がありません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "この操作を行う権限がありません"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "REQUEST_NOT_FOUND",
+                    "details": {},
+                    "message": "対象が見つかりません",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "対象が見つかりません"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "details": {},
+                    "message": "入力内容を確認してください",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "入力内容を確認してください"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "details": {},
+                    "message": "サーバー内部でエラーが発生しました",
+                    "requestId": "trace_0123abcd"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "サーバー内部でエラーが発生しました"
+          }
+        },
+        "security": [
+          {
+            "SuperTokensSession": []
+          }
+        ],
+        "summary": "利用者を利用停止・解除する（管理者）",
         "tags": [
           "Admin"
         ]

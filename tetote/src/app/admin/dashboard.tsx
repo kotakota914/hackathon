@@ -110,6 +110,14 @@ export default function MunicipalityDashboardScreen() {
             <Text style={[styles.eyebrow, { fontSize: fs(12) }]}>自治体向け ・ 地域の助け合い状況</Text>
             <Text style={[styles.title, { fontSize: fs(24) }]}>ダッシュボード</Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/admin/reports" as never)}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="shield-outline" size={18} color={COLORS.green} />
+            <Text style={[styles.secondaryButtonText, { fontSize: fs(14) }]}>通報の確認</Text>
+          </Pressable>
           {Platform.OS === "web" && overview ? (
             <Pressable
               accessibilityRole="button"
