@@ -1,8 +1,10 @@
 import SuperTokens from "supertokens-web-js";
 import { getApiBaseUrl } from "../api/config";
 import EmailPassword, {
+  sendPasswordResetEmail as superTokensSendPasswordResetEmail,
   signIn as superTokensSignIn,
   signUp as superTokensSignUp,
+  submitNewPassword as superTokensSubmitNewPassword,
 } from "supertokens-web-js/recipe/emailpassword";
 import Session, {
   doesSessionExist,
@@ -66,6 +68,10 @@ export interface AuthClient {
   signUp(email: string, password: string): Promise<AuthResult>;
   signIn(email: string, password: string): Promise<AuthResult>;
   signOut(): Promise<void>;
+  /** パスワード再設定の案内メールを送る。登録の有無は答えない。 */
+  requestPasswordReset(email: string): Promise<AuthResult>;
+  /** メールの案内（URL の token）から新しいパスワードを確定する。 */
+  submitNewPassword(password: string): Promise<AuthResult>;
   getProfile(): Promise<AuthProfile>;
   updateProfile(update: ProfileUpdate): Promise<AuthProfile>;
 }
@@ -197,6 +203,39 @@ export const browserAuthClient: AuthClient = {
 
   async signOut() {
     await superTokensSignOut();
+  },
+
+  async requestPasswordReset(email) {
+    try {
+      const result = await superTokensSendPasswordResetEmail({
+        formFields: [{ id: "email", value: email }],
+      });
+      if (result.status === "FIELD_ERROR") {
+        return { ok: false, message: fieldErrorMessage(result.formFields) };
+      }
+      // OK と PASSWORD_RESET_NOT_ALLOWED はどちらも「送った」と答える（存在を推測させない）。
+      return { ok: true };
+    } catch {
+      return { ok: false, message: "送信できませんでした。時間をおいてもう一度お試しください" };
+    }
+  },
+
+  async submitNewPassword(password) {
+    try {
+      const result = await superTokensSubmitNewPassword({
+        formFields: [{ id: "password", value: password }],
+      });
+      if (result.status === "OK") return { ok: true };
+      if (result.status === "FIELD_ERROR") {
+        return { ok: false, message: fieldErrorMessage(result.formFields) };
+      }
+      return {
+        ok: false,
+        message: "この再設定の案内は期限切れか、すでに使われています。もう一度やり直してください",
+      };
+    } catch {
+      return { ok: false, message: "変更できませんでした。時間をおいてもう一度お試しください" };
+    }
   },
 
   getProfile,
