@@ -7,6 +7,7 @@ import { FontSizeProvider } from "../context/FontSizeContext";
 import { AuthProvider, useAuth } from "../auth/AuthContext";
 import { warmUpApi } from "../api/client";
 import { SafetyProvider } from "../context/SafetyContext";
+import { OfflineBanner } from "../shared/OfflineBanner";
 
 function AuthenticatedStack() {
   const { refreshProfile, status } = useAuth();
@@ -48,7 +49,12 @@ function AuthenticatedStack() {
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <View style={styles.app}>
+      <OfflineBanner />
+      <Stack screenOptions={{ headerShown: false }} />
+    </View>
+  );
 }
 
 export default function RootLayout() {
@@ -74,6 +80,9 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
+  app: {
+    flex: 1,
+  },
   loading: {
     flex: 1,
     alignItems: "center",
