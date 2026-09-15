@@ -64,3 +64,40 @@ def test_list_sql_uses_every_argument(monkeypatch, sort: str, with_cursor: bool,
     assert used == set(range(1, len(args) + 1))
     order_by = "scheduled_at asc" if sort == "scheduled" else "created_at desc"
     assert order_by in sql
+
+
+def test_list_sql_references_only_existing_request_columns(monkeypatch) -> None:
+    """SQL 中の r.<列名> が、migration の requests テーブル定義に存在することを確かめる。
+
+    本番でだけ 500 になった不具合（本文の列は original_text なのに r.description を書いた）
+    の再発防止。
+    """
+    from pathlib import Path
+
+    baseline = Path("supabase/migrations/20260820000000_baseline.sql").read_text(encoding="utf-8")
+    table = re.search(r"create table (?:if not exists )?(?:public\.)?requests \((.*?)\n\);", baseline, re.S)
+    assert table, "requests テーブル定義が見つからない"
+    columns = {
+        line.strip().split()[0]
+        for line in table.group(1).splitlines()
+        if line.strip() and not line.strip().startswith(("constraint", "primary", "unique", "check", "foreign"))
+    }
+    # 後から alter table で足した列
+    columns |= set(re.findall(r"alter table (?:public\.)?requests\s+add column (?:if not exists )?(\w+)", "\n".join(
+        p.read_text(encoding="utf-8") for p in Path("supabase/migrations").glob("*.sql")
+    ), re.I))
+
+    conn = FakeConnection()
+
+    @contextlib.asynccontextmanager
+    async def fake_connection(actor):
+        yield conn
+
+    monkeypatch.setattr(module, "actor_connection", fake_connection)
+    asyncio.run(PostgresRequestRepository().list(
+        ACTOR, category=None, area_code=None, limit=20, keyword="電球", sort="scheduled",
+    ))
+    sql, _ = conn.calls[-1]
+    referenced = set(re.findall(r"\br\.(\w+)", sql))
+    missing = referenced - columns
+    assert not missing, f"requests テーブルに無い列を参照している: {sorted(missing)}"
