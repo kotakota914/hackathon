@@ -70,6 +70,40 @@ export function tagsForCategory(category: string): string[] {
   return categoryTags[category] ?? ["#その他"];
 }
 
+/** 絞り込みに使えるカテゴリ（識別子はバックエンドと同じ）。 */
+export const REQUEST_CATEGORIES: { id: string; label: string }[] = [
+  { id: "shopping", label: "買い物" },
+  { id: "cleaning", label: "掃除・日常生活" },
+  { id: "household", label: "家事" },
+  { id: "escort", label: "付き添い・外出" },
+  { id: "digital_support", label: "デジタル・パソコン" },
+  { id: "pet_support", label: "ペット・動物" },
+  { id: "walking", label: "散歩" },
+  { id: "exercise", label: "運動" },
+  { id: "gardening", label: "庭・草むしり" },
+  { id: "snow_removal", label: "雪かき・力仕事" },
+  { id: "errand", label: "用事・お使い" },
+  { id: "moving", label: "移動・運搬" },
+];
+
+export type RequestSort = "newest" | "scheduled";
+
+export const REQUEST_SORTS: { id: RequestSort; label: string }[] = [
+  { id: "newest", label: "新しい順" },
+  { id: "scheduled", label: "予定日が近い順" },
+];
+
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** 予定日時を「9/20(土) 10:00」の形にする。読めない値は空文字。 */
+export function formatScheduledAt(isoDate: string): string {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return "";
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${date.getMonth() + 1}/${date.getDate()}(${WEEKDAYS[date.getDay()]}) ${hours}:${minutes}`;
+}
+
 function formatMonthDay(isoDate: string): string {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return "";
@@ -98,6 +132,10 @@ export type ListRequestsParams = {
   areaCode?: string;
   category?: string;
   cursor?: string;
+  /** タイトル・本文のキーワード（部分一致）。空白だけなら送らない。 */
+  q?: string;
+  sort?: RequestSort;
+  limit?: number;
 };
 
 export async function listPublicRequests(
@@ -105,8 +143,12 @@ export async function listPublicRequests(
   client: ApiClient = apiClient,
 ): Promise<RequestListPage> {
   const query = new URLSearchParams();
+  const keyword = params.q?.trim() ?? "";
+  if (keyword) query.set("q", keyword.slice(0, 50));
+  if (params.sort && params.sort !== "newest") query.set("sort", params.sort);
   if (params.areaCode) query.set("areaCode", params.areaCode);
   if (params.category) query.set("category", params.category);
+  if (params.limit) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.size > 0 ? `?${query.toString()}` : "";
 

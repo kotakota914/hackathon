@@ -907,6 +907,18 @@ const swipeLeft =
           </View>
         )}
 
+        <View style={styles.listButtons}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/helper/search")}
+          style={({ pressed }) => [
+            styles.savedListButton,
+            pressed && styles.savedListButtonPressed,
+          ]}
+        >
+          <Text style={styles.savedListButtonText}>依頼を探す</Text>
+          <Ionicons name="search" size={24} color="#245C2D" />
+        </Pressable>
         <Pressable
           onPress={() =>
             router.push(
@@ -934,6 +946,7 @@ const swipeLeft =
             color="#245C2D"
           />
         </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -1377,8 +1390,14 @@ const createStyles = (scale: number) =>
       fontWeight: "700",
     },
 
+    listButtons: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      flexWrap: "wrap",
+      gap: 10,
+    },
+
     savedListButton: {
-      alignSelf: "flex-end",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",

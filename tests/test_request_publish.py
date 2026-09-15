@@ -51,7 +51,7 @@ REQUEST_BODY = {
     "title": "庭の片付け",
     "description": "庭の落ち葉を一緒に片付けてください",
     "category": "cleaning",
-    "scheduledAt": "2026-09-10T10:00:00+09:00",
+    "scheduledAt": "2099-01-01T10:00:00+09:00",
     "estimatedMinutes": 30,
     "requiredHelpers": 1,
     "areaCode": "AREA-001",
