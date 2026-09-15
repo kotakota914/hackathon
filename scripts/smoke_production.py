@@ -5,7 +5,7 @@
     .venv\\Scripts\\python.exe scripts\\smoke_production.py --api https://fitt0-api.vercel.app --origin https://fitt0-app.vercel.app
 
 やること（使い捨ての利用者 2 人を作り、最後に両方とも退会させる）:
-    A 登録 → A が依頼を作る → B 登録 → B に依頼が見える → B が応募 → A に「お知らせ」が届く
+    A 登録 → A が依頼を作る → B 登録 → B に依頼が見える → B がキーワード検索で見つける → B が応募 → A に「お知らせ」が届く
     → A が B を選ぶ → B がメッセージを送る → 双方が完了を確認 → A が B を評価
     → B の公開プロフィールに回数と評価が出る → A・B が退会 → 再ログインできない
 
@@ -101,6 +101,13 @@ class Smoke:
             self.ok("B の一覧に A の依頼が見える")
         else:
             self.fail("B の一覧に A の依頼が無い")
+
+        # キーワード検索と予定日順（#25）が Postgres 実装でも動くことを確かめる。
+        searched = self.call("B", "GET", "/requests?q=%E9%9B%BB%E7%90%83&sort=scheduled&limit=50").json().get("items", [])
+        if any(item.get("id") == request_id for item in searched):
+            self.ok("B がキーワード「電球」+ 予定日順で A の依頼を見つけられる")
+        else:
+            self.fail("キーワード検索で A の依頼が見つからない")
 
         application = self.call("B", "POST", f"/requests/{request_id}/applications", {
             "message": "動作確認です。伺えます。", "availableAt": "2099-01-01T10:00:00+09:00",
