@@ -153,6 +153,7 @@ export default function HelpLayout() {
         options={hiddenTabOptions}
       />
       <Tabs.Screen name="requests" options={{ href: null }} />
+      <Tabs.Screen name="request-edit" options={{ href: null }} />
       <Tabs.Screen name="report" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="verification" options={{ href: null }} />
