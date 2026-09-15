@@ -434,7 +434,7 @@ class PostgresRequestRepository:
         async with actor_connection(actor) as conn:
             blocked_requester_ids = list(blocked_requester_ids or ())
             cursor_id = None
-            marker_scheduled_at = None
+            cursor_timestamp = None
             if cursor is not None:
                 try:
                     cursor_id = uuid.UUID(cursor.request_id)
@@ -445,13 +445,18 @@ class PostgresRequestRepository:
                 )
                 if marker is None or _parse_timestamp(_iso(marker["created_at"])) != cursor.created_at:
                     raise InvalidCursor("cursor request does not exist")
-                marker_scheduled_at = marker["scheduled_at"]
+                # 「次のページ」の境界値。並び順が scheduled なら予定日時、newest なら作成日時。
+                cursor_timestamp = (
+                    marker["scheduled_at"] if sort == "scheduled" else cursor.created_at
+                )
             # 並び順ごとに「次のページ」の条件と order by を切り替える。値はすべて
             # プレースホルダで渡し、SQL 文字列に利用者の入力は混ぜない。
+            # asyncpg は SQL 中の $n の個数と渡す引数の個数が一致しないとエラーになるため、
+            # どちらの分岐でも $1〜$12 をすべて使う形にそろえる。
             if sort == "scheduled":
                 paging = """
-                   and ($13::timestamptz is null
-                        or (r.scheduled_at, r.id) > ($13::timestamptz, $10::uuid))
+                   and ($9::timestamptz is null
+                        or (r.scheduled_at, r.id) > ($9::timestamptz, $10::uuid))
                  order by r.scheduled_at asc, r.id asc limit $11"""
             else:
                 paging = """
@@ -481,8 +486,8 @@ class PostgresRequestRepository:
                  _normalise_datetime(scheduled_to) if scheduled_to else None,
                  required_helpers, max_distance_km, verification_status,
                  blocked_requester_ids,
-                 cursor.created_at if cursor else None, cursor_id, limit,
-                 like_pattern, marker_scheduled_at,
+                 cursor_timestamp, cursor_id, limit,
+                 like_pattern,
             )
         return [_public_record(_row_to_record(row)) for row in rows]
 
