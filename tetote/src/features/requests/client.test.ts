@@ -39,6 +39,24 @@ function clientWith(fetchMock: ReturnType<typeof vi.fn>): ApiClient {
 }
 
 describe("公開依頼の一覧取得", () => {
+  it("キーワード・並び順・件数をクエリに載せ、空白だけのキーワードと既定の並び順は送らない", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(jsonResponse({ items: [], nextCursor: null })));
+    const client = clientWith(fetchMock);
+
+    await listPublicRequests({ q: "  電球  ", sort: "scheduled", category: "cleaning", limit: 10 }, client);
+    await listPublicRequests({ q: "   ", sort: "newest" }, client);
+
+    const [firstUrl] = fetchMock.mock.calls[0] as [string];
+    const [secondUrl] = fetchMock.mock.calls[1] as [string];
+    expect(new URL(firstUrl).searchParams.get("q")).toBe("電球");
+    expect(new URL(firstUrl).searchParams.get("sort")).toBe("scheduled");
+    expect(new URL(firstUrl).searchParams.get("category")).toBe("cleaning");
+    expect(new URL(firstUrl).searchParams.get("limit")).toBe("10");
+    expect(secondUrl).toBe("http://api.test/requests");
+  });
+
   it("一覧とカーソルを返す", async () => {
     const fetchMock = vi
       .fn()

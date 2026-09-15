@@ -7564,9 +7564,42 @@
     },
     "/requests": {
       "get": {
-        "description": "カテゴリ・日時・必要人数・概算距離・本人確認状態で絞り込み、カーソルページングで返す。現在地または登録地域による並び替え元もoriginで返す。",
+        "description": "カテゴリ・日時・必要人数・概算距離・本人確認状態・キーワード（q: タイトルと本文の部分一致）で絞り込み、カーソルページングで返す。sort=newest（既定、作成が新しい順）または sort=scheduled（予定日時が近い順）。現在地または登録地域による並び替え元もoriginで返す。",
         "operationId": "list_requests_requests_get",
         "parameters": [
+          {
+            "description": "タイトル・本文の部分一致",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 50,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "タイトル・本文の部分一致",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "newest=新しい順 / scheduled=予定日時が近い順",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "description": "newest=新しい順 / scheduled=予定日時が近い順",
+              "pattern": "^(newest|scheduled)$",
+              "title": "Sort",
+              "type": "string"
+            }
+          },
           {
             "in": "query",
             "name": "category",

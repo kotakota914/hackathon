@@ -41,6 +41,23 @@ def _parse_timestamp(value: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+# 一覧の並び順。newest は作成が新しい順、scheduled は予定日時が近い順。
+SORT_ORDERS = ("newest", "scheduled")
+
+
+def matches_keyword(item: RequestRecord, keyword: str | None) -> bool:
+    """タイトルか本文にキーワードを含むか（英字の大文字小文字は区別しない）。"""
+    if not keyword:
+        return True
+    needle = keyword.casefold()
+    return needle in str(item["title"]).casefold() or needle in str(item["description"]).casefold()
+
+
+def escape_like(keyword: str) -> str:
+    """LIKE のワイルドカード（% と _）を文字として扱うためにエスケープする。"""
+    return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def encode_cursor(item: RequestRecord) -> str:
     payload = {
         "createdAt": _parse_timestamp(str(item["createdAt"])).isoformat(),
@@ -161,6 +178,7 @@ class RequestRepository(Protocol):
         required_helpers: int | None = None, max_distance_km: float | None = None,
         verification_status: str | None = None,
         blocked_requester_ids: Sequence[str] | None = None,
+        keyword: str | None = None, sort: str = "newest",
     ) -> list[RequestRecord]: ...
 
     async def get(self, actor: CurrentUser, request_id: str) -> RequestRecord | None: ...
@@ -243,12 +261,14 @@ class MemoryRequestRepository:
                    required_helpers: int | None = None,
                    max_distance_km: float | None = None,
                    verification_status: str | None = None,
-                   blocked_requester_ids: Sequence[str] | None = None) -> list[RequestRecord]:
+                   blocked_requester_ids: Sequence[str] | None = None,
+                   keyword: str | None = None, sort: str = "newest") -> list[RequestRecord]:
         del actor
         blocked_requester_ids = blocked_requester_ids or ()
         items = [
             item for item in self._items.values()
             if item["status"] == "published" and not is_expired(item.get("expiresAt"))
+            and matches_keyword(item, keyword)
         ]
         if category is not None:
             items = [item for item in items if item["category"] == category]
@@ -266,19 +286,31 @@ class MemoryRequestRepository:
                 blocked_requester_ids=blocked_requester_ids,
             )
         ]
-        items.sort(
-            key=lambda item: (_parse_timestamp(item["createdAt"]), item["id"]),
-            reverse=True,
-        )
+        # カーソルは常に「作成日時 + id」で表すが、並び順が scheduled のときは
+        # その依頼の予定日時を基準に「次のページ」を切る。
+        def scheduled_key(item: RequestRecord) -> tuple[datetime, str]:
+            return (_parse_timestamp(str(item["scheduledAt"])), str(item["id"]))
+
+        if sort == "scheduled":
+            items.sort(key=scheduled_key)
+        else:
+            items.sort(
+                key=lambda item: (_parse_timestamp(item["createdAt"]), item["id"]),
+                reverse=True,
+            )
         if cursor is not None:
             marker = self._items.get(cursor.request_id)
             if marker is None or _parse_timestamp(marker["createdAt"]) != cursor.created_at:
                 raise InvalidCursor("cursor request does not exist")
-            items = [
-                item for item in items
-                if (_parse_timestamp(item["createdAt"]), item["id"])
-                < (cursor.created_at, cursor.request_id)
-            ]
+            if sort == "scheduled":
+                marker_key = scheduled_key(marker)
+                items = [item for item in items if scheduled_key(item) > marker_key]
+            else:
+                items = [
+                    item for item in items
+                    if (_parse_timestamp(item["createdAt"]), item["id"])
+                    < (cursor.created_at, cursor.request_id)
+                ]
         return [_public_record(item) for item in items[:limit]]
 
     async def get(self, actor: CurrentUser, request_id: str) -> RequestRecord | None:
@@ -397,20 +429,36 @@ class PostgresRequestRepository:
                    required_helpers: int | None = None,
                    max_distance_km: float | None = None,
                    verification_status: str | None = None,
-                   blocked_requester_ids: Sequence[str] | None = None) -> list[RequestRecord]:
+                   blocked_requester_ids: Sequence[str] | None = None,
+                   keyword: str | None = None, sort: str = "newest") -> list[RequestRecord]:
         async with actor_connection(actor) as conn:
             blocked_requester_ids = list(blocked_requester_ids or ())
             cursor_id = None
+            marker_scheduled_at = None
             if cursor is not None:
                 try:
                     cursor_id = uuid.UUID(cursor.request_id)
                 except ValueError as exc:
                     raise InvalidCursor("cursor id is not a UUID") from exc
                 marker = await conn.fetchrow(
-                    "select created_at from requests where id = $1", cursor_id
+                    "select created_at, scheduled_at from requests where id = $1", cursor_id
                 )
                 if marker is None or _parse_timestamp(_iso(marker["created_at"])) != cursor.created_at:
                     raise InvalidCursor("cursor request does not exist")
+                marker_scheduled_at = marker["scheduled_at"]
+            # 並び順ごとに「次のページ」の条件と order by を切り替える。値はすべて
+            # プレースホルダで渡し、SQL 文字列に利用者の入力は混ぜない。
+            if sort == "scheduled":
+                paging = """
+                   and ($13::timestamptz is null
+                        or (r.scheduled_at, r.id) > ($13::timestamptz, $10::uuid))
+                 order by r.scheduled_at asc, r.id asc limit $11"""
+            else:
+                paging = """
+                   and ($9::timestamptz is null
+                        or (r.created_at, r.id) < ($9::timestamptz, $10::uuid))
+                 order by r.created_at desc, r.id desc limit $11"""
+            like_pattern = f"%{escape_like(keyword)}%" if keyword else None
             rows = await conn.fetch(
                 self._SELECT + """
                  where r.status = 'published'
@@ -425,15 +473,16 @@ class PostgresRequestRepository:
                         or app.verification_status_of(r.requester_id) = $7::verification_status)
                    and not app.is_blocked_pair(r.requester_id, app.current_actor())
                    and not (app.auth_subject_of(r.requester_id) = any($8::text[]))
-                   and ($9::timestamptz is null
-                        or (r.created_at, r.id) < ($9::timestamptz, $10::uuid))
-                 order by r.created_at desc, r.id desc limit $11
-                """, category, area_code,
+                   and ($12::text is null
+                        or r.title ilike $12::text escape '\\'
+                        or r.description ilike $12::text escape '\\')""" + paging,
+                 category, area_code,
                  _normalise_datetime(scheduled_from) if scheduled_from else None,
                  _normalise_datetime(scheduled_to) if scheduled_to else None,
                  required_helpers, max_distance_km, verification_status,
                  blocked_requester_ids,
                  cursor.created_at if cursor else None, cursor_id, limit,
+                 like_pattern, marker_scheduled_at,
             )
         return [_public_record(_row_to_record(row)) for row in rows]
 

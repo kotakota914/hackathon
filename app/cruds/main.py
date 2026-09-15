@@ -1252,8 +1252,10 @@ async def list_my_requests(
     return {"items": items}
 
 
-@app.get("/requests", response_model=RequestListResponse, tags=["Requests"], summary="公開依頼を検索", description="カテゴリ・日時・必要人数・概算距離・本人確認状態で絞り込み、カーソルページングで返す。現在地または登録地域による並び替え元もoriginで返す。", responses=api_errors(401, 422, 500))
+@app.get("/requests", response_model=RequestListResponse, tags=["Requests"], summary="公開依頼を検索", description="カテゴリ・日時・必要人数・概算距離・本人確認状態・キーワード（q: タイトルと本文の部分一致）で絞り込み、カーソルページングで返す。sort=newest（既定、作成が新しい順）または sort=scheduled（予定日時が近い順）。現在地または登録地域による並び替え元もoriginで返す。", responses=api_errors(401, 422, 500))
 async def list_requests(
+    q: str | None = Query(default=None, min_length=1, max_length=50, description="タイトル・本文の部分一致"),
+    sort: str = Query(default="newest", pattern="^(newest|scheduled)$", description="newest=新しい順 / scheduled=予定日時が近い順"),
     category: str | None = None,
     areaCode: str | None = None,
     scheduledFrom: datetime | None = None,
@@ -1317,6 +1319,8 @@ async def list_requests(
             max_distance_km=maxDistanceKm,
             verification_status=verificationStatus,
             blocked_requester_ids=blocked_requester_ids,
+            keyword=q.strip() if q and q.strip() else None,
+            sort=sort,
         )
     except InvalidCursor as exc:
         raise HTTPException(422, detail={"code": "INVALID_CURSOR"}) from exc
@@ -1324,7 +1328,10 @@ async def list_requests(
     has_more = len(items) > limit
     page = items[:limit]
     cursor_item = page[-1] if page else None
-    if latitude is not None and longitude is not None:
+    # 予定日時順のときはその順序を崩さない。新しい順のときだけ、近い地域を先頭に寄せる。
+    if sort == "scheduled":
+        pass
+    elif latitude is not None and longitude is not None:
         page.sort(
             key=lambda item: distance_km(
                 latitude, longitude, REGIONS.get(item["areaCode"], REGIONS["AREA-001"])
