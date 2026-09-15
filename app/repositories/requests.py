@@ -480,7 +480,7 @@ class PostgresRequestRepository:
                    and not (app.auth_subject_of(r.requester_id) = any($8::text[]))
                    and ($12::text is null
                         or r.title ilike $12::text escape '\\'
-                        or r.description ilike $12::text escape '\\')""" + paging,
+                        or r.original_text ilike $12::text escape '\\')""" + paging,
                  category, area_code,
                  _normalise_datetime(scheduled_from) if scheduled_from else None,
                  _normalise_datetime(scheduled_to) if scheduled_to else None,
